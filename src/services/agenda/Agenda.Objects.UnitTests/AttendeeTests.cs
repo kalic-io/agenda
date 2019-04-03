@@ -6,13 +6,13 @@ namespace Agenda.Objects.UnitTests
 {
     [Feature("Agenda")]
     [UnitTest]
-    public class ParticipantTests
+    public class AttendeeTests
     {
         [Fact]
         public void GivenNullParameter_Ctor_Throws_ArgumentNullException()
         {
             // Act
-            Action action = () => new Participant(null);
+            Action action = () => new Attendee(null);
 
             // Assert
             action.Should()
@@ -23,7 +23,7 @@ namespace Agenda.Objects.UnitTests
         public void GivenNullParameter_NameSetter_Throws_ArgumentNullException()
         {
             // Arrange
-            Participant participant = new Participant("Bruce");
+            Attendee participant = new Attendee("Bruce");
 
             // Act
             Action action = () => participant.Name = null;
@@ -39,7 +39,7 @@ namespace Agenda.Objects.UnitTests
         public void Ctor_Builds_ValidObject(string name, string expectedName)
         {
             // Act
-            Participant participant = new Participant(name);
+            Attendee participant = new Attendee(name);
 
             // Assert
             participant.Name.Should()

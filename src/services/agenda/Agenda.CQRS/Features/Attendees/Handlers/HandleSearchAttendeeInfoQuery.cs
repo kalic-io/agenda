@@ -19,9 +19,9 @@ using static DataFilters.FilterLogic;
 namespace Agenda.CQRS.Features.Participants.Handlers
 {
     /// <summary>
-    /// Handler for <see cref="SearchParticipantInfoQuery"/> queries
+    /// Handler for <see cref="SearchAttendeeInfoQuery"/> queries
     /// </summary>
-    public class HandleSearchParticipantInfoQuery : IRequestHandler<SearchParticipantInfoQuery, Page<ParticipantInfo>>
+    public class HandleSearchAttendeeInfoQuery : IRequestHandler<SearchAttendeeInfoQuery, Page<AttendeeInfo>>
     {
         private readonly IHandleSearchQuery _handleSearch;
 
@@ -29,35 +29,35 @@ namespace Agenda.CQRS.Features.Participants.Handlers
         /// Builds 
         /// </summary>
         /// <param name="handleSearch"></param>
-        public HandleSearchParticipantInfoQuery(IHandleSearchQuery handleSearch)
+        public HandleSearchAttendeeInfoQuery(IHandleSearchQuery handleSearch)
         {
             _handleSearch = handleSearch;
         }
 
-        public async Task<Page<ParticipantInfo>> Handle(SearchParticipantInfoQuery request, CancellationToken cancellationToken)
+        public async Task<Page<AttendeeInfo>> Handle(SearchAttendeeInfoQuery request, CancellationToken cancellationToken)
         {
-            SearchParticipantInfo requestData = request.Data;
+            SearchAttendeeInfo requestData = request.Data;
             IList<IFilter> filters = new List<IFilter>(3);
             if (!string.IsNullOrWhiteSpace(requestData.Name))
             {
-                filters.Add($"{nameof(ParticipantInfo.Name)}={requestData.Name}".ToFilter<ParticipantInfo>());
+                filters.Add($"{nameof(AttendeeInfo.Name)}={requestData.Name}".ToFilter<AttendeeInfo>());
             }
 
             IFilter filter = filters.Count == 1
                 ? filters.Single()
                 : new CompositeFilter { Logic = And, Filters = filters };
 
-            SearchQueryInfo<ParticipantInfo> data = new SearchQueryInfo<ParticipantInfo>
+            SearchQueryInfo<AttendeeInfo> data = new SearchQueryInfo<AttendeeInfo>
             {
                 Page = requestData.Page,
                 PageSize = requestData.PageSize,
-                Sort = requestData.Sort?.ToSort<ParticipantInfo>() ?? new Sort<ParticipantInfo>(nameof(ParticipantInfo.UpdatedDate), SortDirection.Descending),
+                Sort = requestData.Sort?.ToSort<AttendeeInfo>() ?? new Sort<AttendeeInfo>(nameof(AttendeeInfo.UpdatedDate), SortDirection.Descending),
                 Filter = filter
             };
 
-            SearchQuery<ParticipantInfo> query = new SearchQuery<ParticipantInfo>(data);
+            SearchQuery<AttendeeInfo> query = new SearchQuery<AttendeeInfo>(data);
 
-            return await _handleSearch.Search<Participant, ParticipantInfo>(query, cancellationToken)
+            return await _handleSearch.Search<Attendee, AttendeeInfo>(query, cancellationToken)
                 .ConfigureAwait(false);
         }
     }

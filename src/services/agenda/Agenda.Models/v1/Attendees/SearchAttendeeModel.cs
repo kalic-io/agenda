@@ -1,15 +1,12 @@
-﻿using MedEasy.DTO.Search;
+﻿using Agenda.Models.v1.Search;
 
-namespace Agenda.DTO.Resources.Search
+namespace Agenda.Models.v1.Attendees
 {
-    /// <summary>
-    /// Wraps criteria to search
-    /// </summary>
-    public class SearchParticipantInfo : AbstractSearchInfo<ParticipantInfo>
+    public class SearchAttendeeModel : AbstractSearchModel<AttendeeModel>
     {
         /// <summary>
         /// Pattern
-        /// </summary>
+        /// </summary
         public string Name { get; set; }
 
         /// <summary>
@@ -22,7 +19,7 @@ namespace Agenda.DTO.Resources.Search
         /// </summary>
         public string PhoneNumber { get; set; }
 
-        public void Deconstruct(out int page, out int pageSize, out string sort, out string name, out string email, out string phoneNumber)
+        public void Deconstruct(out int page, out int? pageSize, out string sort, out string name, out string email, out string phoneNumber)
         {
             page = Page;
             pageSize = PageSize;

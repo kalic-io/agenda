@@ -9,7 +9,7 @@ namespace Agenda.CQRS.UnitTests.Features.Appointments.Commmands
 {
     [Feature("Agenda")]
     [UnitTest]
-    public class AddParticipantToAppointmentCommandTests
+    public class AddAttendeeToAppointmentCommandTests
     {
         [Fact]
         public void Ctor_Is_Valid()
@@ -19,14 +19,14 @@ namespace Agenda.CQRS.UnitTests.Features.Appointments.Commmands
             Guid participantId = Guid.NewGuid();
 
             // Act
-            AddParticipantToAppointmentCommand instance = new AddParticipantToAppointmentCommand(data : (appointmentId, participantId));
+            AddAttendeeToAppointmentCommand instance = new AddAttendeeToAppointmentCommand(data : (appointmentId, participantId));
 
             // Assert
             instance.Id.Should()
                 .NotBeEmpty();
             instance.Data.appointmentId.Should()
                 .Be(appointmentId);
-            instance.Data.participantId.Should()
+            instance.Data.attendeeId.Should()
                 .Be(participantId);
         }
 
@@ -34,7 +34,7 @@ namespace Agenda.CQRS.UnitTests.Features.Appointments.Commmands
         public void Ctor_Throws_ArgumentException()
         {
             // Act
-            Action action = () => new AddParticipantToAppointmentCommand(default);
+            Action action = () => new AddAttendeeToAppointmentCommand(default);
 
             // Assert
             action.Should()
@@ -53,10 +53,10 @@ namespace Agenda.CQRS.UnitTests.Features.Appointments.Commmands
 
                     yield return new object[]
                     {
-                        new AddParticipantToAppointmentCommand((appointmentId, participantId)),
-                        new AddParticipantToAppointmentCommand((appointmentId, participantId)),
+                        new AddAttendeeToAppointmentCommand((appointmentId, participantId)),
+                        new AddAttendeeToAppointmentCommand((appointmentId, participantId)),
                         true,
-                        $"two {nameof(AddParticipantToAppointmentCommand)} commands with same data"
+                        $"two {nameof(AddAttendeeToAppointmentCommand)} commands with same data"
                     };
                 }
 
@@ -66,10 +66,10 @@ namespace Agenda.CQRS.UnitTests.Features.Appointments.Commmands
 
                     yield return new object[]
                     {
-                        new AddParticipantToAppointmentCommand((appointmentId, participantId)),
-                        new AddParticipantToAppointmentCommand((appointmentId, Guid.NewGuid())),
+                        new AddAttendeeToAppointmentCommand((appointmentId, participantId)),
+                        new AddAttendeeToAppointmentCommand((appointmentId, Guid.NewGuid())),
                         false,
-                        $"two {nameof(AddParticipantToAppointmentCommand)} commands with different {nameof(AddParticipantToAppointmentCommand.Data.participantId)} data"
+                        $"two {nameof(AddAttendeeToAppointmentCommand)} commands with different {nameof(AddAttendeeToAppointmentCommand.Data.attendeeId)} data"
                     };
                 }
             }
@@ -77,7 +77,7 @@ namespace Agenda.CQRS.UnitTests.Features.Appointments.Commmands
 
         [Theory]
         [MemberData(nameof(EqualsCases))]
-        public void AreEquals(AddParticipantToAppointmentCommand first, object second, bool expectedResult, string reason)
+        public void AreEquals(AddAttendeeToAppointmentCommand first, object second, bool expectedResult, string reason)
         {
             // Act
             bool actualResult = first.Equals(second);

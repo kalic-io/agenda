@@ -1,16 +1,19 @@
-﻿using Agenda.API.Resources;
+﻿using Agenda.API.Resources.v1;
 using Agenda.API.Routing;
 using Agenda.CQRS.Features.Participants.Queries;
 using Agenda.DataStores;
 using Agenda.DTO;
 using Agenda.DTO.Resources.Search;
 using Agenda.Mapping;
+using Agenda.Models.v1.Appointments;
+using Agenda.Models.v1.Attendees;
 using Agenda.Objects;
+using AutoMapper;
 using AutoMapper.QueryableExtensions;
 using Bogus;
+using DataFilters;
 using FluentAssertions;
 using FluentAssertions.Extensions;
-using MedEasy.CQRS.Core.Queries;
 using MedEasy.DAL.EFStore;
 using MedEasy.DAL.Interfaces;
 using MedEasy.DAL.Repositories;
@@ -31,10 +34,7 @@ using System.Threading.Tasks;
 using Xunit;
 using Xunit.Abstractions;
 using Xunit.Categories;
-using DataFilters;
 using static MedEasy.RestObjects.LinkRelation;
-
-
 using static Moq.MockBehavior;
 using static System.StringComparison;
 
@@ -42,17 +42,18 @@ namespace Agenda.API.UnitTests
 {
     [UnitTest]
     [Feature("Agenda")]
-    public class ParticipantsControllerTests : IDisposable, IClassFixture<SqliteDatabaseFixture>
+    public class AttendeesControllerTests : IDisposable, IClassFixture<SqliteDatabaseFixture>
     {
         private ITestOutputHelper _outputHelper;
+        private Mock<IMapper> _mapperMock;
         private Mock<IUrlHelper> _urlHelperMock;
         private IUnitOfWorkFactory _uowFactory;
         private Mock<IOptionsSnapshot<AgendaApiOptions>> _apiOptionsMock;
         private Mock<IMediator> _mediatorMock;
-        private ParticipantsController _sut;
+        private AttendeesController _sut;
         private const string _baseUrl = "agenda";
 
-        public ParticipantsControllerTests(ITestOutputHelper outputHelper, SqliteDatabaseFixture database)
+        public AttendeesControllerTests(ITestOutputHelper outputHelper, SqliteDatabaseFixture database)
         {
             _urlHelperMock = new Mock<IUrlHelper>(Strict);
             _urlHelperMock.Setup(mock => mock.Link(It.IsAny<string>(), It.IsAny<object>()))
@@ -71,15 +72,31 @@ namespace Agenda.API.UnitTests
             _apiOptionsMock = new Mock<IOptionsSnapshot<AgendaApiOptions>>(Strict);
 
             _mediatorMock = new Mock<IMediator>(Strict);
-            _sut = new ParticipantsController(urlHelper: _urlHelperMock.Object, mediator: _mediatorMock.Object, apiOptions: _apiOptionsMock.Object);
             _outputHelper = outputHelper;
+
+            _mapperMock = new Mock<IMapper>(Strict);
+
+            IMapper mapper = AutoMapperConfig.Build().CreateMapper();
+            _mapperMock.Setup(mock => mock.Map<IEnumerable<AttendeeModel>>(It.IsAny<IEnumerable<AttendeeInfo>>()))
+                .Returns((IEnumerable<AttendeeInfo> input) => mapper.Map<IEnumerable<AttendeeModel>>(input));
+            _mapperMock.Setup(mock => mock.Map<IEnumerable<AppointmentModel>>(It.IsAny<IEnumerable<AppointmentInfo>>()))
+                .Returns((IEnumerable<AppointmentInfo> input) => mapper.Map<IEnumerable<AppointmentModel>>(input));
+            _mapperMock.Setup(mock => mock.Map<AttendeeModel>(It.IsAny<AttendeeInfo>()))
+                .Returns((AttendeeInfo input) => mapper.Map<AttendeeModel>(input));
+            _mapperMock.Setup(mock => mock.Map<SearchAttendeeInfo>(It.IsAny<SearchAttendeeModel>()))
+                .Returns((SearchAttendeeModel input) => mapper.Map<SearchAttendeeInfo>(input));
+
+            
+            _sut = new AttendeesController(urlHelper: _urlHelperMock.Object, mediator: _mediatorMock.Object, apiOptions: _apiOptionsMock.Object,
+                    _mapperMock.Object
+                );
         }
 
         public async void Dispose()
         {
             using (IUnitOfWork uow = _uowFactory.NewUnitOfWork())
             {
-                uow.Repository<Participant>().Clear();
+                uow.Repository<Attendee>().Clear();
 
                 await uow.SaveChangesAsync()
                     .ConfigureAwait(false);
@@ -89,6 +106,7 @@ namespace Agenda.API.UnitTests
             _urlHelperMock = null;
             _apiOptionsMock = null;
             _mediatorMock = null;
+            _mapperMock = null;
             _sut = null;
         }
 
@@ -105,21 +123,21 @@ namespace Agenda.API.UnitTests
                     {
                         yield return new object[]
                         {
-                            Enumerable.Empty<Participant>(), // Current store state
+                            Enumerable.Empty<Attendee>(), // Current store state
                             (pageSize, page), // request,
                             (defaultPageSize : 30, maxPageSize : 200),
                             0,    //expected total
                             (
                                 first : (Expression<Func<Link, bool>>) (x => x != null && x.Relation == First
                                     && ($"{_baseUrl}/{RouteNames.DefaultGetAllApi}/?" +
-                                    $"Controller={ParticipantsController.EndpointName}" +
+                                    $"Controller={AttendeesController.EndpointName}" +
                                     "&page=1" +
                                     $"&pageSize={(pageSize < 1 ? 1 : Math.Min(pageSize, 200))}").Equals(x.Href, OrdinalIgnoreCase)), // expected link to first page
                                 previous : (Expression<Func<Link, bool>>) (x => x == null), // expected link to previous page
                                 next :(Expression<Func<Link, bool>>) (x => x == null), // expected link to next page
                                 last : (Expression<Func<Link, bool>>) (x => x != null && x.Relation == Last
                                     && ($"{_baseUrl}/{RouteNames.DefaultGetAllApi}/?" +
-                                    $"Controller={ParticipantsController.EndpointName}" +
+                                    $"Controller={AttendeesController.EndpointName}" +
                                     "&page=1" +
                                     $"&pageSize={(pageSize < 1 ? 1 : Math.Min(pageSize, 200))}").Equals(x.Href, OrdinalIgnoreCase))
                             )  // expected link to last page
@@ -127,14 +145,14 @@ namespace Agenda.API.UnitTests
                     }
                 }
 
-                Faker<Participant> participantFaker = new Faker<Participant>()
-                    .CustomInstantiator(faker => new Participant(faker.Person.FullName))
-                    .RuleFor(participant => participant.Id, 0)
-                    .RuleFor(participant => participant.UUID, () => Guid.NewGuid())
-                    .RuleFor(participant => participant.Email, faker => faker.Internet.Email())
-                    .RuleFor(participant => participant.PhoneNumber, faker => faker.Person.Phone);
+                Faker<Attendee> attendeeFaker = new Faker<Attendee>()
+                    .CustomInstantiator(faker => new Attendee(faker.Person.FullName))
+                    .RuleFor(attendee => attendee.Id, 0)
+                    .RuleFor(attendee => attendee.UUID, () => Guid.NewGuid())
+                    .RuleFor(attendee => attendee.Email, faker => faker.Internet.Email())
+                    .RuleFor(attendee => attendee.PhoneNumber, faker => faker.Person.Phone);
 
-                IEnumerable<Participant> items = participantFaker.Generate(20);
+                IEnumerable<Attendee> items = attendeeFaker.Generate(20);
 
                 yield return new object[]
                 {
@@ -143,10 +161,10 @@ namespace Agenda.API.UnitTests
                     (defaultPageSize : 30, maxPageSize : 200),
                     20,    //expected total
                     (
-                        first : (Expression<Func<Link, bool>>) (x => x != null && x.Relation == First && $"{_baseUrl}/{RouteNames.DefaultGetAllApi}/?Controller={ParticipantsController.EndpointName}&page=1&pageSize=5".Equals(x.Href, OrdinalIgnoreCase)), // expected link to first page
+                        first : (Expression<Func<Link, bool>>) (x => x != null && x.Relation == First && $"{_baseUrl}/{RouteNames.DefaultGetAllApi}/?Controller={AttendeesController.EndpointName}&page=1&pageSize=5".Equals(x.Href, OrdinalIgnoreCase)), // expected link to first page
                         previous : (Expression<Func<Link, bool>>) (x => x == null), // expected link to previous page
-                        next : (Expression<Func<Link, bool>>) (x => x != null && x.Relation == Next && $"{_baseUrl}/{RouteNames.DefaultGetAllApi}/?Controller={ParticipantsController.EndpointName}&page=2&pageSize=5".Equals(x.Href, OrdinalIgnoreCase)), // expected link to next page
-                        last : (Expression<Func<Link, bool>>) (x => x != null && x.Relation == Last && $"{_baseUrl}/{RouteNames.DefaultGetAllApi}/?Controller={ParticipantsController.EndpointName}&page=4&pageSize=5".Equals(x.Href, OrdinalIgnoreCase))
+                        next : (Expression<Func<Link, bool>>) (x => x != null && x.Relation == Next && $"{_baseUrl}/{RouteNames.DefaultGetAllApi}/?Controller={AttendeesController.EndpointName}&page=2&pageSize=5".Equals(x.Href, OrdinalIgnoreCase)), // expected link to next page
+                        last : (Expression<Func<Link, bool>>) (x => x != null && x.Relation == Last && $"{_baseUrl}/{RouteNames.DefaultGetAllApi}/?Controller={AttendeesController.EndpointName}&page=4&pageSize=5".Equals(x.Href, OrdinalIgnoreCase))
                     )  // expected link to last page
                 };
 
@@ -157,10 +175,10 @@ namespace Agenda.API.UnitTests
                     (defaultPageSize : 30, maxPageSize : 200),
                     20,    //expected total
                     (
-                        first : (Expression<Func<Link, bool>>) (x => x != null && x.Relation == First && $"{_baseUrl}/{RouteNames.DefaultGetAllApi}/?Controller={ParticipantsController.EndpointName}&page=1&pageSize=5".Equals(x.Href, OrdinalIgnoreCase)), // expected link to first page
-                        previous : (Expression<Func<Link, bool>>) (x => x != null && x.Relation == Previous && $"{_baseUrl}/{RouteNames.DefaultGetAllApi}/?Controller={ParticipantsController.EndpointName}&page=3&pageSize=5".Equals(x.Href, OrdinalIgnoreCase)), // expected link to first page
+                        first : (Expression<Func<Link, bool>>) (x => x != null && x.Relation == First && $"{_baseUrl}/{RouteNames.DefaultGetAllApi}/?Controller={AttendeesController.EndpointName}&page=1&pageSize=5".Equals(x.Href, OrdinalIgnoreCase)), // expected link to first page
+                        previous : (Expression<Func<Link, bool>>) (x => x != null && x.Relation == Previous && $"{_baseUrl}/{RouteNames.DefaultGetAllApi}/?Controller={AttendeesController.EndpointName}&page=3&pageSize=5".Equals(x.Href, OrdinalIgnoreCase)), // expected link to first page
                         next : (Expression<Func<Link, bool>>) (x => x == null ), // expected link to next page
-                        last : (Expression<Func<Link, bool>>) (x => x != null && x.Relation == Last && $"{_baseUrl}/{RouteNames.DefaultGetAllApi}/?Controller={ParticipantsController.EndpointName}&page=4&pageSize=5".Equals(x.Href, OrdinalIgnoreCase))
+                        last : (Expression<Func<Link, bool>>) (x => x != null && x.Relation == Last && $"{_baseUrl}/{RouteNames.DefaultGetAllApi}/?Controller={AttendeesController.EndpointName}&page=4&pageSize=5".Equals(x.Href, OrdinalIgnoreCase))
                     )  // expected link to last page
                 };
 
@@ -171,10 +189,10 @@ namespace Agenda.API.UnitTests
                     (defaultPageSize : 30, maxPageSize : 200),
                     20,    //expected total
                     (
-                        first : (Expression<Func<Link, bool>>) (x => x != null && x.Relation == First && $"{_baseUrl}/{RouteNames.DefaultGetAllApi}/?Controller={ParticipantsController.EndpointName}&page=1&pageSize=5".Equals(x.Href, OrdinalIgnoreCase)), // expected link to first page
-                        previous : (Expression<Func<Link, bool>>) (x => x != null && x.Relation == Previous && $"{_baseUrl}/{RouteNames.DefaultGetAllApi}/?Controller={ParticipantsController.EndpointName}&page=1&pageSize=5".Equals(x.Href, OrdinalIgnoreCase)), // expected link to first page
-                        next : (Expression<Func<Link, bool>>) (x => x != null && x.Relation == Next && $"{_baseUrl}/{RouteNames.DefaultGetAllApi}/?Controller={ParticipantsController.EndpointName}&page=3&pageSize=5".Equals(x.Href, OrdinalIgnoreCase)), // expected link to first page
-                        last : (Expression<Func<Link, bool>>) (x => x != null && x.Relation == Last && $"{_baseUrl}/{RouteNames.DefaultGetAllApi}/?Controller={ParticipantsController.EndpointName}&page=4&pageSize=5".Equals(x.Href, OrdinalIgnoreCase))
+                        first : (Expression<Func<Link, bool>>) (x => x != null && x.Relation == First && $"{_baseUrl}/{RouteNames.DefaultGetAllApi}/?Controller={AttendeesController.EndpointName}&page=1&pageSize=5".Equals(x.Href, OrdinalIgnoreCase)), // expected link to first page
+                        previous : (Expression<Func<Link, bool>>) (x => x != null && x.Relation == Previous && $"{_baseUrl}/{RouteNames.DefaultGetAllApi}/?Controller={AttendeesController.EndpointName}&page=1&pageSize=5".Equals(x.Href, OrdinalIgnoreCase)), // expected link to first page
+                        next : (Expression<Func<Link, bool>>) (x => x != null && x.Relation == Next && $"{_baseUrl}/{RouteNames.DefaultGetAllApi}/?Controller={AttendeesController.EndpointName}&page=3&pageSize=5".Equals(x.Href, OrdinalIgnoreCase)), // expected link to first page
+                        last : (Expression<Func<Link, bool>>) (x => x != null && x.Relation == Last && $"{_baseUrl}/{RouteNames.DefaultGetAllApi}/?Controller={AttendeesController.EndpointName}&page=4&pageSize=5".Equals(x.Href, OrdinalIgnoreCase))
                     )  // expected link to last page
                };
             }
@@ -182,12 +200,12 @@ namespace Agenda.API.UnitTests
 
         [Theory]
         [MemberData(nameof(GetAllTestCases))]
-        public async Task GetAll(IEnumerable<Participant> items, (int pageSize, int page) request,
+        public async Task GetAll(IEnumerable<Attendee> items, (int pageSize, int page) request,
             (int defaultPageSize, int maxPageSize) pagingOptions,
             int expectedCount,
             (Expression<Func<Link, bool>> firstPageUrlExpectation, Expression<Func<Link, bool>> previousPageUrlExpectation, Expression<Func<Link, bool>> nextPageUrlExpectation, Expression<Func<Link, bool>> lastPageUrlExpectation) linksExpectation)
         {
-            _outputHelper.WriteLine($"Testing {nameof(ParticipantsController.Get)}({nameof(PaginationConfiguration)})");
+            _outputHelper.WriteLine($"Testing {nameof(AttendeesController.Get)}({nameof(PaginationConfiguration)})");
             _outputHelper.WriteLine($"{nameof(request)}{nameof(request.pageSize)}: {request.pageSize}");
             _outputHelper.WriteLine($"{nameof(request)}{nameof(request.page)}: {request.page}");
             _outputHelper.WriteLine($"items count: {items.Count()}");
@@ -195,23 +213,23 @@ namespace Agenda.API.UnitTests
             // Arrange
             using (IUnitOfWork uow = _uowFactory.NewUnitOfWork())
             {
-                uow.Repository<Participant>().Create(items);
+                uow.Repository<Attendee>().Create(items);
                 await uow.SaveChangesAsync()
                     .ConfigureAwait(false);
             }
 
-            _mediatorMock.Setup(mock => mock.Send(It.IsAny<GetPageOfParticipantInfoQuery>(), It.IsAny<CancellationToken>()))
-                .Returns(async (GetPageOfParticipantInfoQuery query, CancellationToken ct) =>
+            _mediatorMock.Setup(mock => mock.Send(It.IsAny<GetPageOfAttendeeInfoQuery>(), It.IsAny<CancellationToken>()))
+                .Returns(async (GetPageOfAttendeeInfoQuery query, CancellationToken ct) =>
                 {
                     using (IUnitOfWork uow = _uowFactory.NewUnitOfWork())
                     {
-                        Expression<Func<Participant, ParticipantInfo>> selector = AutoMapperConfig.Build().ExpressionBuilder.GetMapExpression<Participant, ParticipantInfo>();
-                        return await uow.Repository<Participant>()
+                        Expression<Func<Attendee, AttendeeInfo>> selector = AutoMapperConfig.Build().ExpressionBuilder.GetMapExpression<Attendee, AttendeeInfo>();
+                        return await uow.Repository<Attendee>()
                             .ReadPageAsync(
                                 selector,
                                 query.Data.PageSize,
                                 query.Data.Page,
-                                new Sort<ParticipantInfo>(nameof(ParticipantInfo.UpdatedDate)),
+                                new Sort<AttendeeInfo>(nameof(AttendeeInfo.UpdatedDate)),
                                 ct)
                             .ConfigureAwait(false);
                     }
@@ -220,23 +238,15 @@ namespace Agenda.API.UnitTests
             _apiOptionsMock.SetupGet(mock => mock.Value).Returns(new AgendaApiOptions { DefaultPageSize = pagingOptions.defaultPageSize, MaxPageSize = pagingOptions.maxPageSize });
 
             // Act
-            IActionResult actionResult = await _sut.Get(page: request.page, pageSize: request.pageSize, ct: default)
+            ActionResult<GenericPagedGetResponse<Browsable<AttendeeModel>>> actionResult = await _sut.Get(page: request.page, pageSize: request.pageSize, ct: default)
                 .ConfigureAwait(false);
 
             // Assert
-            _apiOptionsMock.VerifyGet(mock => mock.Value, Times.Once, $"{nameof(ParticipantsController)}.{nameof(ParticipantsController.Get)} must always check that {nameof(PaginationConfiguration.PageSize)} don't exceed {nameof(AgendaApiOptions.MaxPageSize)} value");
-            _mediatorMock.Verify(mock => mock.Send(It.IsAny<GetPageOfParticipantInfoQuery>(), It.IsAny<CancellationToken>()), Times.Once);
+            _apiOptionsMock.VerifyGet(mock => mock.Value, Times.Once, $"{nameof(AttendeesController)}.{nameof(AttendeesController.Get)} must always check that {nameof(PaginationConfiguration.PageSize)} don't exceed {nameof(AgendaApiOptions.MaxPageSize)} value");
+            _mediatorMock.Verify(mock => mock.Send(It.IsAny<GetPageOfAttendeeInfoQuery>(), It.IsAny<CancellationToken>()), Times.Once);
 
-            actionResult.Should()
-                    .NotBeNull().And
-                    .BeOfType<OkObjectResult>();
-            ObjectResult okObjectResult = (OkObjectResult)actionResult;
-
-            object value = okObjectResult.Value;
-
-            GenericPagedGetResponse<Browsable<ParticipantInfo>> response = okObjectResult.Value.Should()
-                    .NotBeNull().And
-                    .BeAssignableTo<GenericPagedGetResponse<Browsable<ParticipantInfo>>>().Which;
+            
+            GenericPagedGetResponse<Browsable<AttendeeModel>> response = actionResult.Value;
 
             _outputHelper.WriteLine($"response : {response}");
 
@@ -252,7 +262,7 @@ namespace Agenda.API.UnitTests
             }
 
             response.Total.Should()
-                    .Be(expectedCount, $@"the ""{nameof(GenericPagedGetResponse<ParticipantInfo>)}.{nameof(GenericPagedGetResponse<ParticipantInfo>.Total)}"" property indicates the number of elements");
+                    .Be(expectedCount, $@"the ""{nameof(GenericPagedGetResponse<AttendeeInfo>)}.{nameof(GenericPagedGetResponse<AttendeeInfo>.Total)}"" property indicates the number of elements");
 
             response.Links.First.Should().Match(linksExpectation.firstPageUrlExpectation);
             response.Links.Previous.Should().Match(linksExpectation.previousPageUrlExpectation);
@@ -264,20 +274,20 @@ namespace Agenda.API.UnitTests
         public async Task WhenMediatorReturnsNotFound_GetById_ReturnsNotFoundResult()
         {
             // Arrange
-            Guid participantId = Guid.NewGuid();
+            Guid attendeeId = Guid.NewGuid();
 
-            _mediatorMock.Setup(mock => mock.Send(It.IsAny<IRequest<Option<ParticipantInfo>>>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync(Option.None<ParticipantInfo>());
+            _mediatorMock.Setup(mock => mock.Send(It.IsAny<IRequest<Option<AttendeeInfo>>>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Option.None<AttendeeInfo>());
 
             // Act
-            IActionResult actionResult = await _sut.Get(id: participantId, ct: default)
+            IActionResult actionResult = await _sut.Get(id: attendeeId, ct: default)
                 .ConfigureAwait(false);
 
             // Assert
             actionResult.Should()
                 .BeAssignableTo<NotFoundResult>();
 
-            _mediatorMock.Verify(mock => mock.Send(It.IsAny<IRequest<Option<ParticipantInfo>>>(), It.IsAny<CancellationToken>()), Times.Once);
+            _mediatorMock.Verify(mock => mock.Send(It.IsAny<IRequest<Option<AttendeeInfo>>>(), It.IsAny<CancellationToken>()), Times.Once);
             _mediatorMock.VerifyNoOtherCalls();
         }
 
@@ -285,13 +295,13 @@ namespace Agenda.API.UnitTests
         public async Task WhenMediatorReturnsNotFound_GetAppointmentsByParticipantId_Returns_NotFound()
         {
             // Arrange
-            Guid participantId = Guid.NewGuid();
+            Guid attendeeId = Guid.NewGuid();
 
             _mediatorMock.Setup(mock => mock.Send(It.IsAny<IRequest<Option<IEnumerable<AppointmentInfo>>>>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Option.None<IEnumerable<AppointmentInfo>>());
 
             // Act
-            ActionResult<IEnumerable<Browsable<AppointmentInfo>>> actionResult = await _sut.Planning(id: participantId, from: 1.January(2019), to: 31.January(2019), ct: default)
+            ActionResult<IEnumerable<Browsable<AppointmentModel>>> actionResult = await _sut.Planning(id: attendeeId, from: 1.January(2019), to: 31.January(2019), ct: default)
                 .ConfigureAwait(false);
 
             // Assert
@@ -300,8 +310,8 @@ namespace Agenda.API.UnitTests
                 .BeOfType<NotFoundResult>();
 
             _mediatorMock.Verify(mock => mock.Send(It.IsAny<IRequest<Option<IEnumerable<AppointmentInfo>>>>(), It.IsAny<CancellationToken>()), Times.Once);
-            _mediatorMock.Verify(mock => mock.Send(It.Is<GetPlanningByParticipantIdQuery>(query =>
-                query.Data.participantId == participantId
+            _mediatorMock.Verify(mock => mock.Send(It.Is<GetPlanningByAttendeeIdQuery>(query =>
+                query.Data.attendeeId == attendeeId
                 && query.Data.start == 1.January(2019) && query.Data.end == 31.January(2019)), It.IsAny<CancellationToken>()), Times.Once);
             _mediatorMock.VerifyNoOtherCalls();
         }
@@ -310,15 +320,15 @@ namespace Agenda.API.UnitTests
         public async Task WhenMediatorReturnsData_GetAppointmentsByParticipantId_Returns_Results()
         {
             // Arrange
-            Guid participantId = Guid.NewGuid();
+            Guid attendeeId = Guid.NewGuid();
             Faker<AppointmentInfo> appointmentInfo = new Faker<AppointmentInfo>()
                 .RuleFor(x => x.Id, () => Guid.NewGuid())
                 .RuleFor(x => x.StartDate, () => 13.January(2010).Add(14.Hours()))
                 .RuleFor(x => x.EndDate, (_, current) => current.StartDate.Add(1.Hours()))
                 .RuleFor(x => x.CreatedDate, (faker) => faker.Date.Recent())
                 .RuleFor(x => x.Participants, _ => new[] {
-                    new ParticipantInfo {Name = "Hugo strange", Id = participantId },
-                    new ParticipantInfo {Name = "Joker", Id = Guid.NewGuid()}
+                    new AttendeeInfo {Name = "Hugo strange", Id = attendeeId },
+                    new AttendeeInfo {Name = "Joker", Id = Guid.NewGuid()}
                 })
                 ;
 
@@ -326,15 +336,15 @@ namespace Agenda.API.UnitTests
                 .ReturnsAsync(Option.Some(appointmentInfo.GenerateLazy(count : 10)));
 
             // Act
-            ActionResult<IEnumerable<Browsable<AppointmentInfo>>> actionResult = await _sut.Planning(id: participantId, from: 1.January(2019), to: 31.January(2019), ct: default)
+            ActionResult<IEnumerable<Browsable<AppointmentModel>>> actionResult = await _sut.Planning(id: attendeeId, from: 1.January(2019), to: 31.January(2019), ct: default)
                 .ConfigureAwait(false);
 
             // Assert
             actionResult.Value.Should()
                 .NotBeNull().And
-                .BeAssignableTo<IEnumerable<Browsable<AppointmentInfo>>>();
+                .BeAssignableTo<IEnumerable<Browsable<AppointmentModel>>>();
 
-            IEnumerable<Browsable<AppointmentInfo>> appointments = actionResult.Value;
+            IEnumerable<Browsable<AppointmentModel>> appointments = actionResult.Value;
             appointments.Should()
                 .NotBeNull().And
                 .NotContainNulls().And
@@ -343,8 +353,8 @@ namespace Agenda.API.UnitTests
                 .OnlyContain(browsable => browsable.Links.Once(link => link.Relation == Self));
 
             _mediatorMock.Verify(mock => mock.Send(It.IsAny<IRequest<Option<IEnumerable<AppointmentInfo>>>>(), It.IsAny<CancellationToken>()), Times.Once);
-            _mediatorMock.Verify(mock => mock.Send(It.Is<GetPlanningByParticipantIdQuery>(query =>
-                query.Data.participantId == participantId
+            _mediatorMock.Verify(mock => mock.Send(It.Is<GetPlanningByAttendeeIdQuery>(query =>
+                query.Data.attendeeId == attendeeId
                 && query.Data.start == 1.January(2019) && query.Data.end == 31.January(2019)), It.IsAny<CancellationToken>()), Times.Once);
             _mediatorMock.VerifyNoOtherCalls();
         }
@@ -355,7 +365,7 @@ namespace Agenda.API.UnitTests
             {
                 (int defaultPageSize, int maxPageSize) pagingOptions = (10, 200);
                 {
-                    SearchParticipantInfo searchInfo = new SearchParticipantInfo
+                    SearchAttendeeModel searchInfo = new SearchAttendeeModel
                     {
                         Name = "bruce",
                         Page = 1,
@@ -365,7 +375,7 @@ namespace Agenda.API.UnitTests
 
                     yield return new object[]
                     {
-                        Page<ParticipantInfo>.Empty,
+                        Page<AttendeeInfo>.Empty,
                         searchInfo,
                         pagingOptions,
                         0,
@@ -373,7 +383,7 @@ namespace Agenda.API.UnitTests
                         (Expression<Func<Link, bool>>) (x => x != null
                             && x.Relation == First
                             && ($"{_baseUrl}/{RouteNames.DefaultSearchResourcesApi}/?" +
-                                $"Controller={ParticipantsController.EndpointName}" +
+                                $"Controller={AttendeesController.EndpointName}" +
                                 $"&name={searchInfo.Name}"+
                                 "&page=1&pageSize=30" +
                                 $"&sort={searchInfo.Sort}").Equals(x.Href, OrdinalIgnoreCase)), // expected link to first page
@@ -382,7 +392,7 @@ namespace Agenda.API.UnitTests
                         (Expression<Func<Link, bool>>) (x => x != null
                             && x.Relation == Last
                             && ($"{_baseUrl}/{RouteNames.DefaultSearchResourcesApi}/?" +
-                                $"Controller={ParticipantsController.EndpointName}" +
+                                $"Controller={AttendeesController.EndpointName}" +
                                 $"&name={searchInfo.Name}"+
                                 "&page=1" +
                                 "&pageSize=30" +
@@ -390,7 +400,7 @@ namespace Agenda.API.UnitTests
                     };
                 }
                 {
-                    SearchParticipantInfo searchInfo = new SearchParticipantInfo
+                    SearchAttendeeModel searchInfo = new SearchAttendeeModel
                     {
                         Name = "!*Wayne",
                         Page = 1,
@@ -399,10 +409,10 @@ namespace Agenda.API.UnitTests
                     };
                     yield return new object[]
                     {
-                        new Page<ParticipantInfo> (
+                        new Page<AttendeeInfo> (
                             entries: new []
                             {
-                                new ParticipantInfo { Name = "Bruce Wayne" }
+                                new AttendeeInfo { Name = "Bruce Wayne" }
                             },
                             total : 1,
                             size : searchInfo.PageSize),
@@ -413,7 +423,7 @@ namespace Agenda.API.UnitTests
                            (Expression<Func<Link, bool>>) (x => x != null
                             && x.Relation == First
                             && ($"{_baseUrl}/{RouteNames.DefaultSearchResourcesApi}/?" +
-                                $"Controller={ParticipantsController.EndpointName}" +
+                                $"Controller={AttendeesController.EndpointName}" +
                                 $"&name={Uri.EscapeDataString(searchInfo.Name)}"+
                                 "&page=1&pageSize=30" +
                                 $"&sort={searchInfo.Sort}").Equals(x.Href, OrdinalIgnoreCase)),
@@ -422,7 +432,7 @@ namespace Agenda.API.UnitTests
                             (Expression<Func<Link, bool>>) (x => x != null
                                 && x.Relation == Last
                                 && ($"{_baseUrl}/{RouteNames.DefaultSearchResourcesApi}/?" +
-                                    $"Controller={ParticipantsController.EndpointName}" +
+                                    $"Controller={AttendeesController.EndpointName}" +
                                     $"&name={Uri.EscapeDataString(searchInfo.Name)}"+
                                     "&page=1&pageSize=30" +
                                     $"&sort={searchInfo.Sort}").Equals(x.Href, OrdinalIgnoreCase))
@@ -430,7 +440,7 @@ namespace Agenda.API.UnitTests
                     };
                 }
                 {
-                    SearchParticipantInfo searchInfo = new SearchParticipantInfo
+                    SearchAttendeeModel searchInfo = new SearchAttendeeModel
                     {
                         Name = "Bruce",
                         Page = 1,
@@ -438,10 +448,10 @@ namespace Agenda.API.UnitTests
                     };
                     yield return new object[]
                     {
-                        new Page<ParticipantInfo> (
+                        new Page<AttendeeInfo> (
                             entries: new []
                             {
-                                new ParticipantInfo { Name = "Bruce Wayne" }
+                                new AttendeeInfo { Name = "Bruce Wayne" }
                             },
                             total : 1,
                             size : searchInfo.PageSize),
@@ -452,7 +462,7 @@ namespace Agenda.API.UnitTests
                             (Expression<Func<Link, bool>>) (x => x != null
                                 && x.Relation == First
                                 && ($"{_baseUrl}/{RouteNames.DefaultSearchResourcesApi}/?" +
-                                    $"Controller={ParticipantsController.EndpointName}" +
+                                    $"Controller={AttendeesController.EndpointName}" +
                                     $"&name={Uri.EscapeDataString(searchInfo.Name)}"+
                                     "&page=1&pageSize=30").Equals(x.Href, OrdinalIgnoreCase)), // expected link to first page
                             (Expression<Func<Link, bool>>)(previous => previous == null),
@@ -460,7 +470,7 @@ namespace Agenda.API.UnitTests
                             (Expression<Func<Link, bool>>) (x => x != null
                                 && x.Relation == Last
                                 && ($"{_baseUrl}/{RouteNames.DefaultSearchResourcesApi}/?" +
-                                    $"Controller={ParticipantsController.EndpointName}" +
+                                    $"Controller={AttendeesController.EndpointName}" +
                                     $"&name={Uri.EscapeDataString(searchInfo.Name)}"+
                                     "&page=1&pageSize=30").Equals(x.Href, OrdinalIgnoreCase))
                         )
@@ -471,33 +481,38 @@ namespace Agenda.API.UnitTests
 
         [Theory]
         [MemberData(nameof(SearchCases))]
-        public async Task Search(Page<ParticipantInfo> page, SearchParticipantInfo request,
+        public async Task Search(Page<AttendeeInfo> page, SearchAttendeeModel request,
             (int defaultPageSize, int maxPageSize) pagingOptions,
             int expectedCount,
             (Expression<Func<Link, bool>> firstPageUrlExpectation, Expression<Func<Link, bool>> previousPageUrlExpectation, Expression<Func<Link, bool>> nextPageUrlExpectation, Expression<Func<Link, bool>> lastPageUrlExpectation) linksExpectation)
         {
-            _outputHelper.WriteLine($"Testing {nameof(ParticipantsController)}({nameof(ParticipantsController.Search)})");
+            _outputHelper.WriteLine($"Testing {nameof(AttendeesController)}({nameof(AttendeesController.Search)})");
             _outputHelper.WriteLine($"{nameof(request)} : {request.Stringify()}");
             _outputHelper.WriteLine($"page of result returned by mediator : {page.Stringify()}");
 
             // Arrange
 
-            _mediatorMock.Setup(mock => mock.Send(It.IsAny<SearchParticipantInfoQuery>(), It.IsAny<CancellationToken>()))
+            _mediatorMock.Setup(mock => mock.Send(It.IsAny<SearchAttendeeInfoQuery>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(page);
 
             _apiOptionsMock.SetupGet(mock => mock.Value)
                 .Returns(new AgendaApiOptions { DefaultPageSize = pagingOptions.defaultPageSize, MaxPageSize = pagingOptions.maxPageSize });
 
             // Act
-            ActionResult<GenericPagedGetResponse<Browsable<ParticipantInfo>>> actionResult = await _sut.Search(request, ct: default)
+            ActionResult<GenericPagedGetResponse<Browsable<AttendeeModel>>> actionResult = await _sut.Search(request, ct: default)
                 .ConfigureAwait(false);
 
             // Assert
-            _apiOptionsMock.VerifyGet(mock => mock.Value, Times.Once, $"{nameof(ParticipantsController)}.{nameof(ParticipantsController.Search)} must always check that {nameof(SearchParticipantInfo.PageSize)} don't exceed {nameof(AgendaApiOptions.MaxPageSize)} value");
-            _mediatorMock.Verify(mock => mock.Send(It.IsAny<IRequest<Page<ParticipantInfo>>>(), It.IsAny<CancellationToken>()), Times.Once);
+            _apiOptionsMock.VerifyGet(mock => mock.Value, Times.Once, $"{nameof(AttendeesController)}.{nameof(AttendeesController.Search)} must always check that {nameof(SearchAttendeeInfo.PageSize)} don't exceed {nameof(AgendaApiOptions.MaxPageSize)} value");
+            _apiOptionsMock.VerifyNoOtherCalls();
+
+            _mediatorMock.Verify(mock => mock.Send(It.IsAny<IRequest<Page<AttendeeInfo>>>(), It.IsAny<CancellationToken>()), Times.Once);
             _mediatorMock.VerifyNoOtherCalls();
 
-            GenericPagedGetResponse<Browsable<ParticipantInfo>> response = actionResult.Value;
+            _mapperMock.Verify(mock => mock.Map<SearchAttendeeInfo>(It.IsAny<SearchAttendeeModel>()), Times.Once);
+            _mapperMock.Verify(mock => mock.Map<SearchAttendeeInfo>(It.Is<SearchAttendeeModel>(input => input == request)), Times.Once);
+
+            GenericPagedGetResponse<Browsable<AttendeeModel>> response = actionResult.Value;
 
             _outputHelper.WriteLine($"response : {response}");
 
@@ -513,7 +528,7 @@ namespace Agenda.API.UnitTests
             }
 
             response.Total.Should()
-                    .Be(expectedCount, $@"the ""{nameof(GenericPagedGetResponse<ParticipantInfo>)}.{nameof(GenericPagedGetResponse<ParticipantInfo>.Total)}"" property indicates the number of elements");
+                    .Be(expectedCount, $@"the ""{nameof(GenericPagedGetResponse<AttendeeInfo>)}.{nameof(GenericPagedGetResponse<AttendeeInfo>.Total)}"" property indicates the number of elements");
 
             response.Links.First.Should().Match(linksExpectation.firstPageUrlExpectation);
             response.Links.Previous.Should().Match(linksExpectation.previousPageUrlExpectation);
@@ -528,12 +543,12 @@ namespace Agenda.API.UnitTests
                 (int defaultPageSize, int maxPageSize) pagingOptions = (defaultPageSize: 10, maxPageSize: 300);
                 yield return new object[]
                 {
-                    Page<ParticipantInfo>.Empty,
+                    Page<AttendeeInfo>.Empty,
                     pagingOptions,
-                    new SearchParticipantInfo { Page = 2, Name = "Bruce*" },
+                    new SearchAttendeeModel { Page = 2, Name = "Bruce*" },
                     (Expression<Func<PageLinks, bool>>)(pageLinks => pageLinks.First != null
                         && ($"agenda/{RouteNames.DefaultSearchResourcesApi}/?" +
-                        $"controller={ParticipantsController.EndpointName}" +
+                        $"controller={AttendeesController.EndpointName}" +
                         $"&name={Uri.EscapeDataString("Bruce*")}" +
                         "&page=1&pageSize=30").Equals(pageLinks.First.Href, OrdinalIgnoreCase)
                     ),
@@ -544,19 +559,27 @@ namespace Agenda.API.UnitTests
 
         [Theory]
         [MemberData(nameof(SearchReturnsNotFoundCases))]
-        public async Task Search_Returns_NotFound_When_PageIndex_Exceed_PageCount(Page<ParticipantInfo> page, (int defaultPageSize, int maxPageSize) pagingOptions, SearchParticipantInfo query,  Expression<Func<PageLinks, bool>> resultExpectation, string reason)
+        public async Task Search_Returns_NotFound_When_PageIndex_Exceed_PageCount(Page<AttendeeInfo> page, (int defaultPageSize, int maxPageSize) pagingOptions, SearchAttendeeModel query,  Expression<Func<PageLinks, bool>> resultExpectation, string reason)
         {
             // Arrange
 
-            _mediatorMock.Setup(mock => mock.Send(It.IsAny<SearchParticipantInfoQuery>(), It.IsAny<CancellationToken>()))
+            _mediatorMock.Setup(mock => mock.Send(It.IsAny<SearchAttendeeInfoQuery>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(page);
 
             _apiOptionsMock.SetupGet(mock => mock.Value)
                 .Returns(new AgendaApiOptions { DefaultPageSize = pagingOptions.defaultPageSize, MaxPageSize = pagingOptions.maxPageSize });
 
             // Act
-            ActionResult<GenericPagedGetResponse<Browsable<ParticipantInfo>>> actionResult = await _sut.Search(query, default)
+            ActionResult<GenericPagedGetResponse<Browsable<AttendeeModel>>> actionResult = await _sut.Search(query, default)
                 .ConfigureAwait(false);
+
+            _mediatorMock.Verify(mock => mock.Send(It.IsAny<SearchAttendeeInfoQuery>(), It.IsAny<CancellationToken>()), Times.Once);
+            _mediatorMock.VerifyNoOtherCalls();
+
+            _mapperMock.Verify(mock => mock.Map<SearchAttendeeInfo>(It.IsAny<SearchAttendeeModel>()), Times.Once);
+            _mapperMock.Verify(mock => mock.Map<SearchAttendeeInfo>(It.Is<SearchAttendeeModel>(input => input == query)), Times.Once);
+            _mapperMock.Verify(mock => mock.Map<IEnumerable<AttendeeModel>>(It.IsAny<IEnumerable<AttendeeInfo>>()), Times.Never);
+            _mapperMock.VerifyNoOtherCalls();
 
             // Assert
             actionResult.Result.Should()

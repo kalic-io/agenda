@@ -12,16 +12,13 @@ namespace Agenda.CQRS.UnitTests.Features.Appointments.Commmands
 {
     [Feature("Agenda")]
     [UnitTest]
-    public class RemoveParticipantFromAppointmentByIdCommandTests
+    public class RemoveAttendeeFromAppointmentByIdCommandTests
     {
         [Fact]
-        public void ClassDefinition()
-        {
-            typeof(RemoveParticipantFromAppointmentByIdCommand).Should()
-                .BeDerivedFrom<CommandBase<Guid, (Guid appointmentId, Guid participantId), DeleteCommandResult>>().And
+        public void ClassDefinition() => typeof(RemoveAttendeeFromAppointmentByIdCommand).Should()
+                .BeDerivedFrom<CommandBase<Guid, (Guid appointmentId, Guid attendeeId), DeleteCommandResult>>().And
                 .NotBeAbstract().And
                 .NotHaveDefaultConstructor();
-        }
 
         [Fact]
         public void Ctor_Is_Valid()
@@ -31,14 +28,14 @@ namespace Agenda.CQRS.UnitTests.Features.Appointments.Commmands
             Guid participantId = Guid.NewGuid();
 
             // Act
-            RemoveParticipantFromAppointmentByIdCommand instance = new RemoveParticipantFromAppointmentByIdCommand(data : (appointmentId, participantId));
+            RemoveAttendeeFromAppointmentByIdCommand instance = new RemoveAttendeeFromAppointmentByIdCommand(data : (appointmentId, participantId));
 
             // Assert
             instance.Id.Should()
                 .NotBeEmpty();
             instance.Data.appointmentId.Should()
                 .Be(appointmentId);
-            instance.Data.participantId.Should()
+            instance.Data.attendeeId.Should()
                 .Be(participantId);
         }
 
@@ -59,7 +56,7 @@ namespace Agenda.CQRS.UnitTests.Features.Appointments.Commmands
         public void Ctor_Throws_ArgumentException(Guid appointmentId, Guid participantId)
         {
             // Act
-            Action action = () => new RemoveParticipantFromAppointmentByIdCommand(data : (appointmentId, participantId));
+            Action action = () => new RemoveAttendeeFromAppointmentByIdCommand(data : (appointmentId, participantId));
 
             // Assert
             action.Should()
@@ -78,8 +75,8 @@ namespace Agenda.CQRS.UnitTests.Features.Appointments.Commmands
 
                     yield return new object[]
                     {
-                        new RemoveParticipantFromAppointmentByIdCommand((appointmentId, participantId)),
-                        new RemoveParticipantFromAppointmentByIdCommand((appointmentId, participantId)),
+                        new RemoveAttendeeFromAppointmentByIdCommand((appointmentId, participantId)),
+                        new RemoveAttendeeFromAppointmentByIdCommand((appointmentId, participantId)),
                         true,
                         "two commands with same data"
                     };
@@ -89,7 +86,7 @@ namespace Agenda.CQRS.UnitTests.Features.Appointments.Commmands
 
         [Theory]
         [MemberData(nameof(EqualsCases))]
-        public void AreEquals(RemoveParticipantFromAppointmentByIdCommand first, RemoveParticipantFromAppointmentByIdCommand second, bool expectedResult, string reason)
+        public void AreEquals(RemoveAttendeeFromAppointmentByIdCommand first, RemoveAttendeeFromAppointmentByIdCommand second, bool expectedResult, string reason)
         {
             // Act
             bool actualResult = first.Equals(second);

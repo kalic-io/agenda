@@ -1,11 +1,11 @@
-﻿namespace Agenda.DataStores.SqliteMigrations
+﻿using System;
+using Microsoft.EntityFrameworkCore.Migrations;
+using NodaTime;
+
+#nullable disable
+
+namespace Agenda.DataStores.Postgres.Migrations
 {
-    using System;
-
-    using Microsoft.EntityFrameworkCore.Migrations;
-
-    using NodaTime;
-
     public partial class InitialMigration : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -17,11 +17,11 @@
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     Location = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
                     Subject = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
-                    StartDate = table.Column<Instant>(type: "timestamp", nullable: false),
-                    EndDate = table.Column<Instant>(type: "timestamp", nullable: false),
-                    CreatedDate = table.Column<Instant>(type: "timestamp", nullable: true),
+                    StartDate = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
+                    EndDate = table.Column<Instant>(type: "timestamp with time zone", nullable: false),
+                    CreatedDate = table.Column<Instant>(type: "timestamp with time zone", nullable: true),
                     CreatedBy = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
-                    UpdatedDate = table.Column<Instant>(type: "timestamp", nullable: true),
+                    UpdatedDate = table.Column<Instant>(type: "timestamp with time zone", nullable: true),
                     UpdatedBy = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true)
                 },
                 constraints: table =>
@@ -37,9 +37,9 @@
                     Name = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
                     PhoneNumber = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false, defaultValue: ""),
                     Email = table.Column<string>(type: "text", nullable: true),
-                    CreatedDate = table.Column<Instant>(type: "timestamp", nullable: true),
+                    CreatedDate = table.Column<Instant>(type: "timestamp with time zone", nullable: true),
                     CreatedBy = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
-                    UpdatedDate = table.Column<Instant>(type: "timestamp", nullable: true),
+                    UpdatedDate = table.Column<Instant>(type: "timestamp with time zone", nullable: true),
                     UpdatedBy = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true)
                 },
                 constraints: table =>

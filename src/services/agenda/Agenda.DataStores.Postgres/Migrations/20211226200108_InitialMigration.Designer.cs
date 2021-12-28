@@ -8,19 +8,22 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NodaTime;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
-namespace Agenda.DataStores.SqliteMigrations
+#nullable disable
+
+namespace Agenda.DataStores.Postgres.Migrations
 {
     [DbContext(typeof(AgendaContext))]
-    [Migration("20210418091417_InitialMigration")]
+    [Migration("20211226200108_InitialMigration")]
     partial class InitialMigration
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("Relational:MaxIdentifierLength", 63)
-                .HasAnnotation("ProductVersion", "5.0.5")
-                .HasAnnotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn);
+                .HasAnnotation("ProductVersion", "6.0.1")
+                .HasAnnotation("Relational:MaxIdentifierLength", 63);
+
+            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.Entity("Agenda.Objects.Appointment", b =>
                 {
@@ -32,17 +35,17 @@ namespace Agenda.DataStores.SqliteMigrations
                         .HasColumnType("character varying(255)");
 
                     b.Property<Instant?>("CreatedDate")
-                        .HasColumnType("timestamp");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Instant>("EndDate")
-                        .HasColumnType("timestamp");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Location")
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
                     b.Property<Instant>("StartDate")
-                        .HasColumnType("timestamp");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Subject")
                         .IsRequired()
@@ -54,7 +57,8 @@ namespace Agenda.DataStores.SqliteMigrations
                         .HasColumnType("character varying(255)");
 
                     b.Property<Instant?>("UpdatedDate")
-                        .HasColumnType("timestamp");
+                        .IsConcurrencyToken()
+                        .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
 
@@ -71,7 +75,7 @@ namespace Agenda.DataStores.SqliteMigrations
                         .HasColumnType("character varying(255)");
 
                     b.Property<Instant?>("CreatedDate")
-                        .HasColumnType("timestamp");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Email")
                         .HasColumnType("text");
@@ -93,7 +97,8 @@ namespace Agenda.DataStores.SqliteMigrations
                         .HasColumnType("character varying(255)");
 
                     b.Property<Instant?>("UpdatedDate")
-                        .HasColumnType("timestamp");
+                        .IsConcurrencyToken()
+                        .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
 
@@ -112,7 +117,7 @@ namespace Agenda.DataStores.SqliteMigrations
 
                     b.HasIndex("AttendeesId");
 
-                    b.ToTable("AppointmentAttendee");
+                    b.ToTable("AppointmentAttendee", (string)null);
                 });
 
             modelBuilder.Entity("AppointmentAttendee", b =>

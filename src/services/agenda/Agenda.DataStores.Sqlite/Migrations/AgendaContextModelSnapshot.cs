@@ -4,10 +4,10 @@ using Agenda.DataStores;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using NodaTime;
-using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
-namespace Agenda.DataStores.SqliteMigrations
+#nullable disable
+
+namespace Agenda.DataStores.Sqlite.Migrations
 {
     [DbContext(typeof(AgendaContext))]
     partial class AgendaContextModelSnapshot : ModelSnapshot
@@ -15,44 +15,44 @@ namespace Agenda.DataStores.SqliteMigrations
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder
-                .HasAnnotation("Relational:MaxIdentifierLength", 63)
-                .HasAnnotation("ProductVersion", "5.0.5")
-                .HasAnnotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn);
+            modelBuilder.HasAnnotation("ProductVersion", "6.0.1");
 
             modelBuilder.Entity("Agenda.Objects.Appointment", b =>
                 {
                     b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("CreatedBy")
                         .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
+                        .HasColumnType("TEXT");
 
-                    b.Property<Instant?>("CreatedDate")
-                        .HasColumnType("timestamp");
+                    b.Property<string>("CreatedDate")
+                        .HasColumnType("TEXT");
 
-                    b.Property<Instant>("EndDate")
-                        .HasColumnType("timestamp");
+                    b.Property<string>("EndDate")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Location")
                         .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
+                        .HasColumnType("TEXT");
 
-                    b.Property<Instant>("StartDate")
-                        .HasColumnType("timestamp");
+                    b.Property<string>("StartDate")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Subject")
                         .IsRequired()
                         .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("UpdatedBy")
                         .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
+                        .HasColumnType("TEXT");
 
-                    b.Property<Instant?>("UpdatedDate")
-                        .HasColumnType("timestamp");
+                    b.Property<string>("UpdatedDate")
+                        .IsConcurrencyToken()
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
@@ -62,36 +62,37 @@ namespace Agenda.DataStores.SqliteMigrations
             modelBuilder.Entity("Agenda.Objects.Attendee", b =>
                 {
                     b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("CreatedBy")
                         .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
+                        .HasColumnType("TEXT");
 
-                    b.Property<Instant?>("CreatedDate")
-                        .HasColumnType("timestamp");
+                    b.Property<string>("CreatedDate")
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Email")
-                        .HasColumnType("text");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("PhoneNumber")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
+                        .HasColumnType("TEXT")
                         .HasDefaultValue("");
 
                     b.Property<string>("UpdatedBy")
                         .HasMaxLength(255)
-                        .HasColumnType("character varying(255)");
+                        .HasColumnType("TEXT");
 
-                    b.Property<Instant?>("UpdatedDate")
-                        .HasColumnType("timestamp");
+                    b.Property<string>("UpdatedDate")
+                        .IsConcurrencyToken()
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
@@ -101,16 +102,16 @@ namespace Agenda.DataStores.SqliteMigrations
             modelBuilder.Entity("AppointmentAttendee", b =>
                 {
                     b.Property<Guid>("AppointmentsId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("TEXT");
 
                     b.Property<Guid>("AttendeesId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("TEXT");
 
                     b.HasKey("AppointmentsId", "AttendeesId");
 
                     b.HasIndex("AttendeesId");
 
-                    b.ToTable("AppointmentAttendee");
+                    b.ToTable("AppointmentAttendee", (string)null);
                 });
 
             modelBuilder.Entity("AppointmentAttendee", b =>

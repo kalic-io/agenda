@@ -1,7 +1,5 @@
 ﻿namespace Agenda.DTO.Resources.Search
 {
-    using MedEasy.DTO.Search;
-
     using NodaTime;
 
     /// <summary>

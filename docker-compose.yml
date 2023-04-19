@@ -1,0 +1,12 @@
+version: '3.4'
+
+services:
+  agenda.api:
+    image: ${DOCKER_REGISTRY-}agendaapi
+    build:
+      context: .
+      dockerfile: src/Agenda.API/Dockerfile
+    depends_on:
+      - agenda.db
+  agenda.db:
+    image: postgres:15-alpine

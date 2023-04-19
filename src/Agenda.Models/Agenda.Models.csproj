@@ -5,7 +5,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\MedEasy.Models\MedEasy.Models.csproj" />
     <ProjectReference Include="..\Agenda.Ids\Agenda.Ids.csproj" />
   </ItemGroup>
 

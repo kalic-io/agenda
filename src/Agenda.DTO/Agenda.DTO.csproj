@@ -5,9 +5,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\tools\MedEasy.DTO\MedEasy.DTO.csproj" />
-    <ProjectReference Include="..\..\..\tools\MedEasy.RestObjects\MedEasy.RestObjects.csproj" />
     <ProjectReference Include="..\Agenda.Ids\Agenda.Ids.csproj" />
   </ItemGroup>
-
+  <ItemGroup>
+    <PackageReference Include="Nodatime" Version="3.1.6"/>
+    <PackageReference Include="Candoumbe.Types" Version="0.2.0-alpha0017"/>
+  </ItemGroup>
 </Project>

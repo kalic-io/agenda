@@ -1,10 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <Import Project="..\..\..\..\..\tests.props"/>
+  <Import Project="..\..\tests.props" />
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFrameworks>net6.0;net7.0</TargetFrameworks>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\..\..\..\src\services\agenda\Agenda.Objects\Agenda.Objects.csproj" />
+    <ProjectReference Include="..\..\src\Agenda.Objects\Agenda.Objects.csproj" />
   </ItemGroup>
 
 </Project>

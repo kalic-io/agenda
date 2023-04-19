@@ -1,6 +1,6 @@
 ﻿namespace Agenda.DTO.Resources.Search
 {
-    using MedEasy.DTO.Search;
+    using Candoumbe.Types.Numerics;
 
     /// <summary>
     /// Wraps criteria to search
@@ -22,7 +22,7 @@
         /// </summary>
         public string PhoneNumber { get; set; }
 
-        public void Deconstruct(out int page, out int pageSize, out string sort, out string name, out string email, out string phoneNumber)
+        public void Deconstruct(out PositiveInteger page, out NonNegativeInteger pageSize, out string sort, out string name, out string email, out string phoneNumber)
         {
             page = Page;
             pageSize = PageSize;

@@ -1,12 +1,16 @@
 ﻿namespace Agenda.Objects
 {
-    using MedEasy.Objects;
+    using Agenda.Ids;
+
+    using Candoumbe.DataAccess.Abstractions.Entities;
+
+    using NodaTime;
+
+    using Optional;
+
     using System;
     using System.Collections.Generic;
     using System.Linq;
-    using Optional;
-    using NodaTime;
-    using Agenda.Ids;
 
     /// <summary>
     /// An meeting wih a location and a subject
@@ -42,6 +46,17 @@
 
         public AppointmentStatus Status { get; }
 
+        /// <summary>
+        /// Builds a new <see cref="Appointment"/> that spans from <paramref name="startDate"/> to <paramref name="endDate"/>.
+        /// </summary>
+        /// <param name="id">identifier of the appointment to create</param>
+        /// <param name="subject"></param>
+        /// <param name="location"></param>
+        /// <param name="startDate">defines when the appointment starts</param>
+        /// <param name="endDate">defines when the appointment ends</param>
+        /// <remarks>
+        /// The instanciated appointment has no 
+        /// </remarks>
         public Appointment(AppointmentId id, string subject, string location, Instant startDate, Instant endDate) : base(id)
         {
             Subject = subject;

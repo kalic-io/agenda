@@ -1,32 +1,21 @@
 ﻿namespace Agenda.Ids
 {
-    using MedEasy.Ids;
-    using MedEasy.Ids.Converters;
-
-    using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+    using Fluxera.StronglyTypedId;
 
     using System;
-    using System.Text.Json.Serialization;
 
-    [JsonConverter(typeof(StronglyTypedIdJsonConverter<AttendeeId, Guid>))]
-    public record AttendeeId(Guid Value) : StronglyTypedId<Guid>(Value)
+    public class AttendeeId : StronglyTypedId<AttendeeId, Guid>
     {
-
-        public static AttendeeId New() => new(Guid.NewGuid());
-
-        public static AttendeeId Empty => new(Guid.Empty);
-
-        public override string ToString() => base.ToString();
-
-        public class EfValueConverter : ValueConverter<AttendeeId, Guid>
+        ///<inheritdoc/>
+        public AttendeeId(Guid value) : base(value)
         {
-            public EfValueConverter(ConverterMappingHints mappingHints = null) : base(
-                id => id.Value,
-                value => new AttendeeId(value),
-                mappingHints
-            )
-            { }
         }
+
+        /// <summary>
+        /// Create a new <see cref="AttendeeId"/>.
+        /// </summary>
+        /// <returns></returns>
+        public static AttendeeId New() => new AttendeeId(Guid.NewGuid());
     }
 
 }

@@ -1,8 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <Import Project="..\..\..\..\..\integration-tests.props" />
+  <Import Project="..\..\integration-tests.props" />
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net7.0</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup>
@@ -13,11 +13,14 @@
 
   <ItemGroup>
     <PackageReference Include="NodaTime.Serialization.JsonNet" Version="3.0.0" />
+    <PackageReference Include="TestContainers.PostgreSql" Version="3.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="7.0.4" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="7.0.4" />
+    <PackageReference Include="FluentAssertions.Nodatime" Version="2.0.1" />
   </ItemGroup>
-  
+
   <ItemGroup>
-    <ProjectReference Include="..\..\..\..\..\test\services\MedEasy.IntegrationTests.Core\MedEasy.IntegrationTests.Core.csproj" />
-    <ProjectReference Include="..\..\Agenda.API\Agenda.API.csproj" />
+    <ProjectReference Include="..\..\src\Agenda.API\Agenda.API.csproj" />
   </ItemGroup>
 
 </Project>

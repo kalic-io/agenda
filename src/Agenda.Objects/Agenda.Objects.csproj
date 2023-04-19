@@ -1,16 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.1</TargetFramework>
+    <TargetFrameworks>netstandard2.1;net6.0;net7.0</TargetFrameworks>
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Optional" Version="4.0.0" />
+    <PackageReference Include="Candoumbe.DataAccess" Version="0.1.0-beta0001" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\tools\MedEasy.Objects\MedEasy.Objects.csproj" />
     <ProjectReference Include="..\Agenda.Ids\Agenda.Ids.csproj" />
   </ItemGroup>
 

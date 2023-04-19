@@ -3,8 +3,6 @@
     using Agenda.DTO;
     using Agenda.Ids;
 
-    using MedEasy.CQRS.Core.Queries;
-
     using Optional;
 
     using System;
@@ -23,4 +21,3 @@
         {
         }
     }
-}

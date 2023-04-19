@@ -38,20 +38,6 @@ namespace Agenda.Objects.UnitTests
                 .Throw<ArgumentNullException>($"Attendee's {nameof(Attendee.Name)} cannot be null");
         }
 
-        [Fact]
-        public void CreatingAttendee_With_Empty_UUID_Throws_ArgumentException()
-        {
-            // Arrange
-            AttendeeId id = AttendeeId.Empty;
-
-            // Act
-            Action action = () => new Attendee(id, "Bruce Wayne");
-
-            // Assert
-            action.Should()
-                .Throw<ArgumentException>($"Cannot create an {nameof(Attendee)} instance with empty {nameof(Attendee.Id)}");
-        }
-
         [Theory]
         [InlineData("bruce Wayne", "Bruce Wayne")]
         [InlineData("Cyrille-alexandre", "Cyrille-Alexandre")]

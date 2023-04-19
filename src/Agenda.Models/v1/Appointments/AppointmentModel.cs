@@ -3,10 +3,6 @@
     using Agenda.Ids;
     using Agenda.Models.v1.Attendees;
 
-    using MedEasy.RestObjects;
-
-    using NodaTime;
-
     using System.Collections.Generic;
 
     /// <summary>

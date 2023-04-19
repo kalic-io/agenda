@@ -1,13 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 
-  <Import Project="..\..\..\..\..\tests.props"/>
+  <Import Project="..\..\tests.props" />
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
   </PropertyGroup>
-
   <ItemGroup>
-    <ProjectReference Include="..\..\..\..\..\src\services\agenda\Agenda.Mapping\Agenda.Mapping.csproj" />
+    <ProjectReference Include="..\..\src\Agenda.Mapping\Agenda.Mapping.csproj" />
   </ItemGroup>
 
 </Project>

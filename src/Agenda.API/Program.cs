@@ -1,75 +1,81 @@
-﻿namespace Agenda.API
+﻿using Agenda.API;
+using Agenda.DataStores;
+
+using FastEndpoints;
+using FastEndpoints.Swagger;
+
+using Fluxera.StronglyTypedId.SystemTextJson;
+
+using NodaTime;
+using NodaTime.Serialization.SystemTextJson;
+
+using Serilog;
+
+using System.Text.Json;
+using System.Text.Json.Serialization;
+/// <summary>
+/// Entry point
+/// </summary>
+
+public class Program
 {
-    using Microsoft.AspNetCore.Hosting;
-    using Microsoft.Extensions.Configuration;
-    using Microsoft.Extensions.DependencyInjection;
-    using Microsoft.Extensions.Hosting;
-    using Microsoft.Extensions.Logging;
-    using Serilog;
-    using System;
-    using System.Threading.Tasks;
-    using System.Diagnostics;
-
-    /// <summary>
-    /// Entry class
-    /// </summary>
-    public class Program
+    private static async Task Main(string[] args)
     {
-        public static async Task Main(string[] args)
+        WebApplicationBuilder builder = WebApplication.CreateBuilder(new WebApplicationOptions { Args = args, ApplicationName = "Agenda.API" });
+
+        builder.Services.AddFastEndpoints();
+        builder.Services.AddSwaggerDoc();
+        builder.Services.AddAsyncInitializer<DataStoreMigrateInitializerAsync<AgendaDataStore>>();
+        builder.Services.AddCustomOptions(builder.Configuration);
+        builder.Services.AddDataStores(builder.Configuration);
+        builder.Services.AddCustomizedDependencyInjection();
+
+        builder.Host.UseSerilog((hosting, loggerConfig) => loggerConfig.MinimumLevel.Verbose()
+                                                                       .Enrich.WithProperty("ApplicationContext", hosting.HostingEnvironment.ApplicationName)
+                                                                       .Enrich.FromLogContext()
+                                                                       .Enrich.WithCorrelationIdHeader()
+                                                                       .WriteTo.Conditional(_ => hosting.HostingEnvironment.IsDevelopment(),
+                                                                                            config => config.Console())
+                                                                       .ReadFrom.Configuration(hosting.Configuration));
+
+        WebApplication app = builder.Build();
+
+        app.UseSerilogRequestLogging();
+        // TODO Add authorization
+        app.UseFastEndpoints(opts =>
         {
-            Activity.DefaultIdFormat = ActivityIdFormat.W3C;
-            IHost host = CreateHostBuilder(args).Build();
+            JsonSerializerOptions jsonSerializerOptions = opts.Serializer.Options;
 
-            using IServiceScope scope = host.Services.CreateScope();
-            IServiceProvider services = scope.ServiceProvider;
-            ILogger<Program> logger = services.GetRequiredService<ILogger<Program>>();
-            IHostEnvironment env = services.GetRequiredService<IHostEnvironment>();
+            jsonSerializerOptions.UseStronglyTypedId();
+            jsonSerializerOptions.ConfigureForNodaTime(DateTimeZoneProviders.Bcl);
 
+            jsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+            jsonSerializerOptions.IgnoreReadOnlyFields = true;
+            jsonSerializerOptions.IgnoreReadOnlyProperties = true;
+            jsonSerializerOptions.AllowTrailingCommas = true;
+            jsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+            jsonSerializerOptions.PropertyNameCaseInsensitive = true;
+            jsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+        });
+        app.UseSwaggerGen();
+
+        using IServiceScope scope = app.Services.CreateScope();
+        IServiceProvider services = scope.ServiceProvider;
+        ILogger<Program> logger = services.GetRequiredService<ILogger<Program>>();
+        IHostEnvironment env = services.GetRequiredService<IHostEnvironment>();
+
+        try
+        {
             logger?.LogInformation("Starting {ApplicationContext}", env.ApplicationName);
+            await app.InitAsync().ConfigureAwait(false);
 
-            try
-            {
-                logger?.LogInformation("Upgrading {ApplicationContext}'s store", env.ApplicationName);
-                await host.InitAsync().ConfigureAwait(false);
-                await host.RunAsync()
-                    .ConfigureAwait(false);
+            await app.RunAsync().ConfigureAwait(false);
 
-                logger?.LogInformation("{ApplicationContext} started", env.ApplicationName);
-            }
-            catch (Exception ex)
-            {
-                logger?.LogError(ex, "An error occurred on startup.");
-            }
+            logger?.LogInformation("{ApplicationContext} started", env.ApplicationName);
         }
-
-        /// <summary>
-        /// Builds the host
-        /// </summary>
-        /// <param name="args">command line arguments</param>
-        /// <returns></returns>
-        public static IHostBuilder CreateHostBuilder(string[] args)
-            => Host.CreateDefaultBuilder(args)
-                .UseSerilog((hosting, loggerConfig) => loggerConfig.MinimumLevel.Verbose()
-                                                                   .Enrich.WithProperty("ApplicationContext", hosting.HostingEnvironment.ApplicationName)
-                                                                   .Enrich.FromLogContext()
-                                                                   .Enrich.WithCorrelationIdHeader()
-                                                                   .WriteTo.Conditional(_ => hosting.HostingEnvironment.IsDevelopment(),
-                                                                                        config => config.Console())
-                                                                   .ReadFrom.Configuration(hosting.Configuration))
-                .ConfigureWebHostDefaults(webHost => webHost.UseStartup<Startup>()
-                                                            .UseKestrel((hosting, options) => options.AddServerHeader = hosting.HostingEnvironment.IsDevelopment())
-                )
-                .ConfigureLogging((options) =>
-                {
-                    options.ClearProviders() // removes all default providers
-                        .AddSerilog()
-                        .AddConsole();
-                })
-                .ConfigureAppConfiguration((_, builder) =>
-
-                    builder
-                        .AddEnvironmentVariables()
-                        .AddCommandLine(args)
-                );
+        catch (Exception ex)
+        {
+            logger?.LogError(ex, "An error occurred on startup.");
+        }
     }
 }

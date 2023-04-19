@@ -2,7 +2,7 @@
 {
     using Agenda.Ids;
 
-    using MedEasy.Objects;
+    using Candoumbe.DataAccess.Abstractions.Entities;
 
     using System;
     using System.Collections.Generic;
@@ -48,10 +48,6 @@
         /// <exception cref="ArgumentException"><paramref name="id"/> is <c>Guid.Empty</c></exception>
         public Attendee(AttendeeId id, string name, string email = null, string phoneNumber = null) : base(id)
         {
-            if (id == AttendeeId.Empty)
-            {
-                throw new ArgumentException(nameof(id), $"{nameof(id)} cannot be {AttendeeId.Empty}");
-            }
             Name = name;
             Email = email;
             PhoneNumber = phoneNumber;

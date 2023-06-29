@@ -1,21 +1,20 @@
-﻿namespace Agenda.API.Resources
+﻿namespace Agenda.API.Resources;
+
+using Candoumbe.Forms;
+
+/// <summary>
+/// Wraps a resource and its <see cref="Links"/>.
+/// </summary>
+/// <typeparam name="TResource">Type of the resource</typeparam>
+public class Browsable<TResource>
 {
-    using Candoumbe.Forms;
+    /// <summary>
+    /// The resource being rendered
+    /// </summary>
+    public TResource Resource { get; set; }
 
     /// <summary>
-    /// Wraps a resource and its <see cref="Links"/>.
+    /// Links to resources related to <see cref="Resource"/>.
     /// </summary>
-    /// <typeparam name="TResource">Type of the resource</typeparam>
-    public class Browsable<TResource>
-    {
-        /// <summary>
-        /// The resource being rendered
-        /// </summary>
-        public TResource Resource { get; set; }
-
-        /// <summary>
-        /// Links to resources related to <see cref="Resource"/>.
-        /// </summary>
-        public IEnumerable<Link> Links { get; set; }
-    }
+    public IEnumerable<Link> Links { get; set; }
 }

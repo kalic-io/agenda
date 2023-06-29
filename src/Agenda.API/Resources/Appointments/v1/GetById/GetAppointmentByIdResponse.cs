@@ -7,7 +7,7 @@
     /// <summary>
     /// An appointment beetween two or more people
     /// </summary>
-    public class AppointmentInfo : Resource<AppointmentId>
+    public class GetAppointmentByIdResponse : Resource<AppointmentId>
     {
         /// <summary>
         /// Location of the appointment
@@ -22,21 +22,16 @@
         /// <summary>
         /// Start date of the appointment
         /// </summary>
-        public OffsetDateTime StartDate { get; set; }
+        public ZonedDateTime StartDate { get; set; }
 
         /// <summary>
         /// End date of the appointment
         /// </summary>
-        public OffsetDateTime EndDate { get; set; }
+        public ZonedDateTime EndDate { get; set; }
 
         /// <summary>
         /// Defines who initiated the appointment
         /// </summary>
         public AttendeeInfo Iniator { get; set; }
-
-        /// <summary>
-        /// Participants
-        /// </summary>
-        public IEnumerable<AttendeeInfo> Attendees { get; set; }
     }
 }

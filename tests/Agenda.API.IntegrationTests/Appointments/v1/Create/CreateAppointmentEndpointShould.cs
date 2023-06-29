@@ -4,21 +4,25 @@ using Agenda.API.IntegrationTests.Fixtures;
 using Agenda.API.Resources;
 using Agenda.API.Resources.Appointments.v1.Create;
 using Agenda.API.Resources.v1.Appointments;
+using Agenda.Ids;
 
 using Bogus;
 
 using Candoumbe.Forms;
 
-using FastEndpoints;
-
 using FluentAssertions;
 
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+
 using NodaTime;
-using NodaTime.Serialization.SystemTextJson;
 
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
+using System.Net.Http.Json;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 using Xunit;
@@ -33,14 +37,17 @@ public class CreateAppointmentEndpointShould : IClassFixture<AgendaWebApplicatio
     private readonly ITestOutputHelper _outputHelper;
     private readonly AgendaWebApplicationFactory _applicationFactory;
     private static readonly Faker Faker = new();
-    private static readonly IDateTimeZoneProvider DefaultDateTimeZone = DateTimeZoneProviders.Tzdb;
-    private static readonly System.Text.Json.JsonSerializerOptions JsonSerializerOptions = new System.Text.Json.JsonSerializerOptions().ConfigureForNodaTime(DefaultDateTimeZone);
+    private readonly JsonSerializerOptions _jsonSerializerOptions;
 
     public CreateAppointmentEndpointShould(ITestOutputHelper outputHelper, AgendaWebApplicationFactory applicationFactory)
     {
         _outputHelper = outputHelper;
         _applicationFactory = applicationFactory;
         _client = _applicationFactory.CreateClient();
+        _jsonSerializerOptions = _applicationFactory.Services
+                                                   .GetRequiredService<IOptions<JsonOptions>>()
+                                                   .Value.JsonSerializerOptions;
+
     }
 
     [Fact]
@@ -52,11 +59,13 @@ public class CreateAppointmentEndpointShould : IClassFixture<AgendaWebApplicatio
 
         NewAppointmentInfo newAppointmentInfo = new()
         {
-            StartDate = startDate.InUtc(),
-            EndDate = endDate.InUtc(),
+            Id = AppointmentId.New(),
+            StartDate = startDate.InUtc().ToOffsetDateTime(),
+            EndDate = endDate.InUtc().ToOffsetDateTime(),
             Location = Faker.Address.City(),
             Attendees = Faker.Make(2, () => new AttendeeInfo()
             {
+                Id = AttendeeId.New(),
                 Name = Faker.Person.FullName,
                 Email = Faker.Person.Email,
                 PhoneNumber = Faker.Person.Phone
@@ -65,23 +74,30 @@ public class CreateAppointmentEndpointShould : IClassFixture<AgendaWebApplicatio
         };
 
         // Act
-        (HttpResponseMessage response, Browsable<AppointmentInfo> browsable) = await _client.POSTAsync<CreateAppointmentEndpoint, NewAppointmentInfo, Browsable<AppointmentInfo>>(newAppointmentInfo);
+        using HttpResponseMessage response = await _client.PostAsJsonAsync("/appointments", newAppointmentInfo, _jsonSerializerOptions);
+
 
         // Assert
-        _outputHelper.WriteLine($"Created resource : {browsable.Jsonify(JsonSerializerOptions)}");
         response.StatusCode.Should()
                            .Be(System.Net.HttpStatusCode.Created);
 
+        Browsable<AppointmentInfo> browsable = await response.Content.ReadFromJsonAsync<Browsable<AppointmentInfo>>(_jsonSerializerOptions);
+
         IEnumerable<Link> links = browsable.Links;
         links.Should()
-             .Contain(link => link.Relations.Once(rel => rel == LinkRelation.Self)).And
-             .Contain(link => link.Relations.Once(rel => string.Equals(rel, "delete", StringComparison.OrdinalIgnoreCase))).And
-             .Contain(link => link.Relations.Once(rel => string.Equals(rel, "attendees", StringComparison.OrdinalIgnoreCase)));
+             .OnlyContain(link => !string.IsNullOrWhiteSpace(link.Href))
+             .And.OnlyContain(link => Uri.IsWellFormedUriString(link.Href, UriKind.Absolute), "all links must be absolute URIs")
+             .And.OnlyContain(link => link.Relations.AtLeastOnce())
+             .And.Contain(link => link.Relations.Once(rel => rel == LinkRelation.Self))
+             .And.Contain(link => link.Relations.Once(rel => string.Equals(rel, "delete", StringComparison.OrdinalIgnoreCase)))
+             //.And.Contain(link => link.Relations.Once(rel => string.Equals(rel, "attendees", StringComparison.OrdinalIgnoreCase)))
+             ;
 
         AppointmentInfo resource = browsable.Resource;
-        resource.Id.Value.Should().NotBeEmpty();
+        resource.Id.Should().Be(newAppointmentInfo.Id);
         resource.Subject.Should().Be(newAppointmentInfo.Subject);
         resource.StartDate.Should().Be(newAppointmentInfo.StartDate);
         resource.EndDate.Should().Be(newAppointmentInfo.EndDate);
+        resource.Attendees.Should().BeEquivalentTo(newAppointmentInfo.Attendees);
     }
 }

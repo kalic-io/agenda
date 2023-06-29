@@ -3,22 +3,26 @@
 using Agenda.API.IntegrationTests.Fixtures;
 using Agenda.API.Resources;
 using Agenda.API.Resources.Appointments.v1.Create;
-using Agenda.API.Resources.Appointments.v1.GetById;
 using Agenda.API.Resources.v1.Appointments;
 using Agenda.Ids;
 
 using Bogus;
 
-using FastEndpoints;
+using Candoumbe.Forms;
 
 using FluentAssertions;
 
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+
 using NodaTime;
-using NodaTime.Serialization.SystemTextJson;
 
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Json;
 using System.Threading.Tasks;
 
 using Xunit;
@@ -33,7 +37,7 @@ public class GetByIdEndpointShould : IClassFixture<AgendaWebApplicationFactory>
     private readonly ITestOutputHelper _outputHelper;
     private readonly AgendaWebApplicationFactory _applicationFactory;
     private static readonly Faker Faker = new();
-    private static readonly System.Text.Json.JsonSerializerOptions JsonSerializerOptions = new System.Text.Json.JsonSerializerOptions().ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
+    private readonly System.Text.Json.JsonSerializerOptions _jsonSerializerOptions;
     private static readonly DateTimeZone DefaultDateTimeZone = DateTimeZone.ForOffset(Offset.FromHours(2));
 
     public GetByIdEndpointShould(ITestOutputHelper outputHelper, AgendaWebApplicationFactory applicationFactory)
@@ -42,6 +46,9 @@ public class GetByIdEndpointShould : IClassFixture<AgendaWebApplicationFactory>
         _applicationFactory = applicationFactory;
         _client = _applicationFactory.CreateClient();
         _client.DefaultRequestHeaders.Add(CurrentRequestMetadataInfoProvider.TimeZoneHeaderName, DefaultDateTimeZone.Id);
+        _jsonSerializerOptions = _applicationFactory.Services
+                                                   .GetRequiredService<IOptions<JsonOptions>>()
+                                                   .Value.JsonSerializerOptions;
     }
 
     [Fact]
@@ -51,11 +58,9 @@ public class GetByIdEndpointShould : IClassFixture<AgendaWebApplicationFactory>
         AppointmentId appointmentId = AppointmentId.New();
 
         // Act
-        Func<Task> get = async () => await _client.GETAsync<GetAppointmentByIdEndpoint, AppointmentId, AppointmentInfo>(appointmentId).ConfigureAwait(false);
+        using HttpResponseMessage getResponse = await _client.GetAsync($"/appointements/{appointmentId}");
 
-        await get.Should()
-                 .ThrowAsync<InvalidOperationException>("The resource does not exist")
-                 .Where(ex => ex.Response().StatusCode == HttpStatusCode.NotFound);
+        getResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     [Fact]
@@ -67,8 +72,9 @@ public class GetByIdEndpointShould : IClassFixture<AgendaWebApplicationFactory>
 
         NewAppointmentInfo newAppointmentInfo = new()
         {
-            StartDate = startDate.InZone(DefaultDateTimeZone),
-            EndDate = endDate.InZone(DefaultDateTimeZone),
+            Id = AppointmentId.New(),
+            StartDate = startDate.InZone(DefaultDateTimeZone).ToOffsetDateTime(),
+            EndDate = endDate.InZone(DefaultDateTimeZone).ToOffsetDateTime(),
             Location = Faker.Address.City(),
             Attendees = Faker.Make(2, action: () => new AttendeeInfo()
             {
@@ -80,23 +86,25 @@ public class GetByIdEndpointShould : IClassFixture<AgendaWebApplicationFactory>
             Subject = Faker.Lorem.Sentence()
         };
 
-        (HttpResponseMessage _, Browsable<AppointmentInfo> browsable) = await _client.POSTAsync<CreateAppointmentEndpoint, NewAppointmentInfo, Browsable<AppointmentInfo>>(newAppointmentInfo);
+        using HttpResponseMessage createResponse = await _client.PostAsJsonAsync("/appointments", newAppointmentInfo, _jsonSerializerOptions);
 
-        _outputHelper.WriteLine($"Created resource : {browsable.Jsonify(JsonSerializerOptions)}");
+        Browsable<AppointmentInfo> browsable = await createResponse.Content.ReadFromJsonAsync<Browsable<AppointmentInfo>>(_jsonSerializerOptions);
 
         // Act
-        (HttpResponseMessage response, Browsable<AppointmentInfo> browsableResult) = await _client.GETAsync<GetAppointmentByIdEndpoint, AppointmentId, Browsable<AppointmentInfo>>(browsable.Resource.Id);
+        Browsable<GetAppointmentByIdResponse> browsableResult = await _client.GetFromJsonAsync<Browsable<GetAppointmentByIdResponse>>($"/appointments/{browsable.Resource.Id}", _jsonSerializerOptions);
 
         // Assert
-        response.StatusCode.Should()
-                           .Be(System.Net.HttpStatusCode.OK);
-        AppointmentInfo resource = browsableResult.Resource;
-        resource.Id.Value.Should().NotBeEmpty();
+        GetAppointmentByIdResponse resource = browsableResult.Resource;
+        resource.Id.Should().Be(newAppointmentInfo.Id);
         //resource.StartDate.Should().Be(newAppointmentInfo.StartDate);
         //resource.EndDate.Should().Be(newAppointmentInfo.EndDate);
-        resource.Attendees.Should()
-                          .HaveSameCount(newAppointmentInfo.Attendees).And
-                          .BeEquivalentTo(newAppointmentInfo.Attendees);
+        resource.Subject.Should().Be(newAppointmentInfo.Subject);
 
+        IEnumerable<Link> links = browsableResult.Links;
+        links.Should().NotBeEmpty()
+                      .And.OnlyContain(link => !string.IsNullOrWhiteSpace(link.Href))
+                      .And.OnlyContain(link => Uri.IsWellFormedUriString(link.Href, UriKind.Absolute))
+                      .And.Contain(link => link.Relations.AtLeastOnce(rel => rel == LinkRelation.Self))
+                      ;
     }
 }

@@ -3,18 +3,22 @@
     using Agenda.API.Resources.Appointments.v1.Delete;
     using Agenda.API.Resources.Appointments.v1.GetById;
     using Agenda.API.Resources.v1.Appointments;
-    using Agenda.Ids;
     using Agenda.Objects;
+
+    using Ardalis.ApiEndpoints;
 
     using Candoumbe.DataAccess.Abstractions;
     using Candoumbe.Forms;
 
-    using FastEndpoints;
+    using Microsoft.AspNetCore.Mvc;
+
+    using static System.Net.Http.HttpMethod;
 
     /// <summary>
     /// Creates new appointment
     /// </summary>
-    public class CreateAppointmentEndpoint : Endpoint<NewAppointmentInfo, Browsable<AppointmentInfo>>
+    public class CreateAppointmentEndpoint : EndpointBaseAsync.WithRequest<NewAppointmentInfo>
+                                                              .WithActionResult<Browsable<AppointmentInfo>>
     {
         private readonly IUnitOfWorkFactory _unitOfWorkFactory;
         private readonly LinkGenerator _linkGenerator;
@@ -34,18 +38,14 @@
         }
 
         ///<inheritdoc/>
-        public override void Configure()
-        {
-            Post("/appointments");
-            AllowAnonymous();
-        }
-
-        ///<inheritdoc/>
-        public override async Task HandleAsync(NewAppointmentInfo req, CancellationToken ct)
+        [HttpPost("/appointments")]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesDefaultResponseType]
+        public override async Task<ActionResult<Browsable<AppointmentInfo>>> HandleAsync([FromBody] NewAppointmentInfo req, CancellationToken ct)
         {
             using IUnitOfWork unitOfWork = _unitOfWorkFactory.NewUnitOfWork();
 
-            Appointment newAppointment = new(AppointmentId.New(), req.Subject, req.Location, req.StartDate.ToInstant(), req.EndDate.ToInstant());
+            Appointment newAppointment = new(req.Id, req.Subject, req.Location, req.StartDate.ToInstant(), req.EndDate.ToInstant());
             foreach (AttendeeInfo attendee in req.Attendees)
             {
                 newAppointment.AddAttendee(new Attendee(attendee.Id, attendee.Name, attendee.Email, attendee.PhoneNumber));
@@ -59,8 +59,8 @@
             {
                 Id = newAppointment.Id,
                 Location = newAppointment.Location,
-                StartDate = newAppointment.StartDate.InZone(zone),
-                EndDate = newAppointment.EndDate.InZone(zone),
+                StartDate = newAppointment.StartDate.InZone(zone).ToOffsetDateTime(),
+                EndDate = newAppointment.EndDate.InZone(zone).ToOffsetDateTime(),
                 Subject = newAppointment.Subject,
                 Attendees = newAppointment.Attendees.Select(attendee => new AttendeeInfo
                 {
@@ -79,19 +79,19 @@
                     new Link
                     {
                         Href = _linkGenerator.GetUriByName(HttpContext, nameof(GetAppointmentByIdEndpoint), new { newAppointment.Id }),
-                        Method = nameof(Http.GET),
+                        Method = nameof(Get),
                         Relations = new[] { LinkRelation.Self }
                     },
                     new Link
                     {
                         Href = _linkGenerator.GetUriByName(HttpContext, nameof(DeleteEndpoint), new { newAppointment.Id }),
-                        Method = nameof(Http.DELETE),
-                        Relations = new[] { LinkRelation.Self }
+                        Method = nameof(Delete),
+                        Relations = new[] { "delete" }
                     },
                 }
             };
 
-            await SendCreatedAtAsync<GetAppointmentByIdEndpoint>(new { newAppointment.Id }, responseBody: browsable, verb: Http.GET, cancellation: ct).ConfigureAwait(false);
+            return new CreatedAtRouteResult(GetAppointmentByIdEndpoint.RouteName, new { newAppointment.Id }, browsable);
         }
     }
 }

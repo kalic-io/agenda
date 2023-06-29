@@ -1,6 +1,7 @@
 ﻿namespace Agenda.API.Resources.Appointments.v1.Create;
 
 using Agenda.API.Resources.v1.Appointments;
+using Agenda.Ids;
 
 using NodaTime;
 
@@ -9,6 +10,11 @@ using NodaTime;
 /// </summary>
 public record NewAppointmentInfo : IEquatable<NewAppointmentInfo>
 {
+    /// <summary>
+    /// Identifier of the appointment
+    /// </summary>
+    public AppointmentId Id { get; init; }
+
     /// <summary>
     /// Location of the appointment
     /// </summary>
@@ -22,12 +28,12 @@ public record NewAppointmentInfo : IEquatable<NewAppointmentInfo>
     /// <summary>
     /// Start date of the appointment
     /// </summary>
-    public ZonedDateTime StartDate { get; init; }
+    public OffsetDateTime StartDate { get; init; }
 
     /// <summary>
     /// End date of the appointment
     /// </summary>
-    public ZonedDateTime EndDate { get; init; }
+    public OffsetDateTime EndDate { get; init; }
 
     /// <summary>
     /// Participants of the appointment

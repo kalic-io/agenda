@@ -1,18 +1,7 @@
 ﻿using Agenda.API;
 using Agenda.DataStores;
 
-using FastEndpoints;
-using FastEndpoints.Swagger;
-
-using Fluxera.StronglyTypedId.SystemTextJson;
-
-using NodaTime;
-using NodaTime.Serialization.SystemTextJson;
-
 using Serilog;
-
-using System.Text.Json;
-using System.Text.Json.Serialization;
 /// <summary>
 /// Entry point
 /// </summary>
@@ -21,14 +10,14 @@ public class Program
 {
     private static async Task Main(string[] args)
     {
-        WebApplicationBuilder builder = WebApplication.CreateBuilder(new WebApplicationOptions { Args = args, ApplicationName = "Agenda.API" });
+        WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
-        builder.Services.AddFastEndpoints();
-        builder.Services.AddSwaggerDoc();
         builder.Services.AddAsyncInitializer<DataStoreMigrateInitializerAsync<AgendaDataStore>>();
         builder.Services.AddCustomOptions(builder.Configuration);
         builder.Services.AddDataStores(builder.Configuration);
         builder.Services.AddCustomizedDependencyInjection();
+        builder.Services.AddCustomizedMvc(builder.Configuration);
+        builder.Services.AddCustomizedSwagger(builder.Configuration);
 
         builder.Host.UseSerilog((hosting, loggerConfig) => loggerConfig.MinimumLevel.Verbose()
                                                                        .Enrich.WithProperty("ApplicationContext", hosting.HostingEnvironment.ApplicationName)
@@ -41,23 +30,12 @@ public class Program
         WebApplication app = builder.Build();
 
         app.UseSerilogRequestLogging();
-        // TODO Add authorization
-        app.UseFastEndpoints(opts =>
-        {
-            JsonSerializerOptions jsonSerializerOptions = opts.Serializer.Options;
+        app.UseRouting();
 
-            jsonSerializerOptions.UseStronglyTypedId();
-            jsonSerializerOptions.ConfigureForNodaTime(DateTimeZoneProviders.Bcl);
+        app.UseSwagger();
+        app.UseSwaggerUI();
 
-            jsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
-            jsonSerializerOptions.IgnoreReadOnlyFields = true;
-            jsonSerializerOptions.IgnoreReadOnlyProperties = true;
-            jsonSerializerOptions.AllowTrailingCommas = true;
-            jsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
-            jsonSerializerOptions.PropertyNameCaseInsensitive = true;
-            jsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
-        });
-        app.UseSwaggerGen();
+        app.MapControllers();
 
         using IServiceScope scope = app.Services.CreateScope();
         IServiceProvider services = scope.ServiceProvider;

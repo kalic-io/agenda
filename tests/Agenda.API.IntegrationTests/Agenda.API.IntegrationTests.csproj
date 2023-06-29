@@ -23,4 +23,8 @@
     <ProjectReference Include="..\..\src\Agenda.API\Agenda.API.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Appointments\v1\Participation\" />
+  </ItemGroup>
+
 </Project>

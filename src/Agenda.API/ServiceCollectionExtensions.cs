@@ -5,8 +5,7 @@
     using Candoumbe.DataAccess.Abstractions;
     using Candoumbe.DataAccess.EFStore;
 
-    using FastEndpoints;
-    using FastEndpoints.Swagger;
+    using Fluxera.StronglyTypedId.SystemTextJson;
 
     using Microsoft.EntityFrameworkCore;
     using Microsoft.Extensions.Configuration;
@@ -15,23 +14,43 @@
     using Microsoft.Extensions.Logging;
 
     using NodaTime;
+    using NodaTime.Serialization.SystemTextJson;
 
     using System;
+    using System.Text.Json;
+    using System.Text.Json.Serialization;
 
     /// <summary>
     /// Provide extension method used to configure services collection
     /// </summary>
     public static class ServiceCollectionExtensions
     {
+        private static Action<JsonSerializerOptions> ConfigureJsonOptions => jsonSerializerOptions =>
+        {
+            jsonSerializerOptions.UseStronglyTypedId();
+            jsonSerializerOptions.ConfigureForNodaTime(DateTimeZoneProviders.Tzdb);
+
+            jsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+            jsonSerializerOptions.IgnoreReadOnlyFields = true;
+            jsonSerializerOptions.IgnoreReadOnlyProperties = true;
+            jsonSerializerOptions.AllowTrailingCommas = true;
+            jsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+            jsonSerializerOptions.PropertyNameCaseInsensitive = true;
+            jsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+        };
+
         /// <summary>
         /// Adds require dependencies for endpoints
         /// </summary>
         /// <param name="services"></param>
         /// <param name="configuration"></param>
-        /// <param name="env"></param>
-        public static IServiceCollection AddCustomizedMvc(this IServiceCollection services, IConfiguration configuration, IHostEnvironment env)
+        /// 
+        public static IServiceCollection AddCustomizedMvc(this IServiceCollection services, IConfiguration configuration)
         {
-            services.AddFastEndpoints();
+            services.ConfigureHttpJsonOptions(options => ConfigureJsonOptions(options.SerializerOptions));
+            services.AddControllers()
+                    .AddJsonOptions(options => ConfigureJsonOptions(options.JsonSerializerOptions));
+
             return services;
         }
 
@@ -127,9 +146,17 @@
         /// <param name="services"></param>
         /// <param name="hostingEnvironment"></param>
         /// <param name="configuration"></param>
-        public static IServiceCollection AddCustomizedSwagger(this IServiceCollection services, IHostEnvironment hostingEnvironment, IConfiguration configuration)
+        public static IServiceCollection AddCustomizedSwagger(this IServiceCollection services, IConfiguration configuration)
         {
-            services.AddSwaggerDoc();
+            services.AddSwaggerGen(options =>
+            {
+                string filePath = null;
+                if (filePath is not null)
+                {
+                    options.IncludeXmlComments(filePath, true);
+                }
+            });
+            services.AddEndpointsApiExplorer();
             return services;
         }
 

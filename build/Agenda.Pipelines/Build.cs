@@ -20,10 +20,18 @@ using System.Linq;
     "integration",
     GitHubActionsImage.UbuntuLatest,
     FetchDepth = 0,
+    EnableGitHubToken = true,
     OnPushBranchesIgnore = new[] { IHaveMainBranch.MainBranchName },
     PublishArtifacts = true,
-    InvokedTargets = new[] { nameof(IUnitTest.UnitTests), nameof(IPushNugetPackages.Publish), nameof(IPack.Pack), nameof(IBuildDockerImage.BuildDockerImages) },
-    CacheKeyFiles = new[] { "global.json", "src/**/*.csproj" },
+    InvokedTargets = new[]
+    {
+        nameof(IUnitTest.UnitTests),
+        nameof(IPushNugetPackages.Publish),
+        nameof(IPack.Pack),
+        nameof(IBuildDockerImage.BuildDockerImages),
+        nameof(IPushDockerImages.Push)
+    },
+    CacheKeyFiles = new[] { "global.json", "src/**/*.csproj", "test/**/*.csproj" },
     ImportSecrets = new[]
     {
             nameof(NugetApiKey),
@@ -33,6 +41,7 @@ using System.Linq;
     {
             "docs/*",
             "README.md",
+            "CONTRIBUTING.md",
             "CHANGELOG.md",
             "LICENSE"
     }
@@ -41,10 +50,20 @@ using System.Linq;
     "delivery",
     GitHubActionsImage.UbuntuLatest,
     FetchDepth = 0,
-    OnPushBranches = new[] { IHaveMainBranch.MainBranchName, IGitFlow.ReleaseBranch + "/*" },
-    InvokedTargets = new[] { nameof(IUnitTest.UnitTests), nameof(IPushNugetPackages.Publish), nameof(ICreateGithubRelease.AddGithubRelease) },
+    OnPushBranches = new[]
+    {
+        IHaveMainBranch.MainBranchName,
+        IGitFlow.ReleaseBranch + "/*"
+    },
+    InvokedTargets = new[]
+    {
+        nameof(IUnitTest.UnitTests),
+        nameof(IPushNugetPackages.Publish),
+        nameof(IPushDockerImages.Push),
+        nameof(ICreateGithubRelease.AddGithubRelease)
+    },
     EnableGitHubToken = true,
-    CacheKeyFiles = new[] { "global.json", "src/**/*.csproj" },
+    CacheKeyFiles = new[] { "global.json", "src/**/*.csproj", "test/**/*.csproj" },
     PublishArtifacts = true,
     ImportSecrets = new[]
     {
@@ -56,6 +75,7 @@ using System.Linq;
             "docs/*",
             "README.md",
             "CHANGELOG.md",
+            "CONTRIBUTING.md",
             "LICENSE"
     }
 )]
@@ -160,7 +180,7 @@ public class Build : NukeBuild,
     ///<inheritdoc/>
     IEnumerable<PushDockerImageConfiguration> IPushDockerImages.Registries => new[]
     {
-        new PushDockerImageConfiguration(new Uri($"ghcr.io/{GitHubActions?.Repository}/"))
+        new PushDockerImageConfiguration(Registry: new Uri($"https://ghcr.io/{GitHubActions?.Repository}/"))
     };
 
     protected override void OnBuildCreated()

@@ -29,7 +29,7 @@ using System.Linq;
         nameof(IPushNugetPackages.Publish),
         nameof(IPack.Pack),
         nameof(IBuildDockerImage.BuildDockerImages),
-        nameof(IPushDockerImages.Push)
+        nameof(IPushDockerImages.PushImages)
     },
     CacheKeyFiles = new[] { "global.json", "src/**/*.csproj", "test/**/*.csproj" },
     ImportSecrets = new[]
@@ -59,7 +59,7 @@ using System.Linq;
     {
         nameof(IUnitTest.UnitTests),
         nameof(IPushNugetPackages.Publish),
-        nameof(IPushDockerImages.Push),
+        nameof(IPushDockerImages.PushImages),
         nameof(ICreateGithubRelease.AddGithubRelease)
     },
     EnableGitHubToken = true,

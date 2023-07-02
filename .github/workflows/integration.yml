@@ -43,8 +43,8 @@ jobs:
             .nuke/temp
             ~/.nuget/packages
           key: ${{ runner.os }}-${{ hashFiles('global.json', 'src/**/*.csproj', 'test/**/*.csproj') }}
-      - name: 'Run: UnitTests, Publish, Pack, BuildDockerImages, Push'
-        run: ./build.cmd UnitTests Publish Pack BuildDockerImages Push
+      - name: 'Run: UnitTests, Publish, Pack, BuildDockerImages, PushImages'
+        run: ./build.cmd UnitTests Publish Pack BuildDockerImages PushImages
         env:
           NugetApiKey: ${{ secrets.NUGET_API_KEY }}
           CodecovToken: ${{ secrets.CODECOV_TOKEN }}
